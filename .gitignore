@@ -1,0 +1,53 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# Spring Boot
+*.log
+spring.log
+
+# Node / npm
+node_modules/
+dist/
+.npm
+
+# Tauri / Rust
+client/src-tauri/target/
+target/
+*.pdb
+*.d
+*.rlib
+*.rmeta
+*.dSYM/
+WixTools/
+*.cer
+*.p12
+*.pfx
+
+# Tauri Android / iOS
+client/src-tauri/gen/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Test output
+surefire-reports/
+
+# Book storage (user data, not committed)
+storage/

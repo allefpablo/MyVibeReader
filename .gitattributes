@@ -1,0 +1,16 @@
+* text=auto eol=lf
+
+# Binary book files
+*.pdf binary
+*.epub binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+
+# Archives
+*.zip binary
+*.tar.gz binary
