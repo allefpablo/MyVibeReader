@@ -4,8 +4,8 @@ target/
 *.jar
 *.war
 *.ear
-.mvn/wrapper/maven-wrapper.jar
-!.mvn/wrapper/maven-wrapper.properties
+server/.mvn/wrapper/maven-wrapper.jar
+!server/.mvn/wrapper/maven-wrapper.properties
 
 # Spring Boot
 *.log
