@@ -4,6 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+### Docker (recommended — no local Java/PostgreSQL needed)
+
+```bash
+cp .env.example .env          # first time only — fill in secrets
+docker compose up --build     # build image + start db and app
+docker compose up -d --build  # same but in background
+docker compose down           # stop (data volumes preserved)
+docker compose down -v        # stop and wipe all data
+docker compose logs -f app    # tail server logs
+```
+
 ### Server (`server/`)
 
 ```bash
@@ -79,7 +90,7 @@ Services receive plain user IDs (strings) rather than full `User` entities — l
 ## Key conventions
 
 - All server endpoints under `/api/`; `/api/auth/**` is unauthenticated
-- Spring profiles: `dev` (create-drop, verbose SQL), default (validate DDL)
+- Spring profiles: `dev` (create-drop, verbose SQL), `docker` (create DDL, INFO logging), default (validate DDL)
 - Server env vars: `SPRING_DATASOURCE_*`, `JWT_SECRET`, `JWT_EXPIRATION_MS`, `STORAGE_PATH`, `SERVER_PORT`
 - Tailwind v4 — use `@tailwindcss/vite` plugin; global import is in `src/globals.css`
 - CSS utilities: combine with `clsx` + `tailwind-merge` (use a `cn()` helper)

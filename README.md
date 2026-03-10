@@ -32,15 +32,24 @@ MyVibeReader/
 
 ## Getting Started
 
-### Prerequisites
+### Server via Docker (recommended)
 
-- Java 21, Maven 3.9+
-- Node.js 20+, npm
-- Rust (stable) + Tauri CLI v2 (`cargo install tauri-cli --version "^2"`)
-- PostgreSQL 15+
-- Android SDK (for Android builds)
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
-### Server
+```bash
+cp .env.example .env       # fill in JWT_SECRET at minimum
+docker compose up --build  # starts PostgreSQL + Spring Boot on port 8080
+```
+
+To stop:
+```bash
+docker compose down        # keeps data
+docker compose down -v     # wipes data volumes too
+```
+
+### Server (local)
+
+Prerequisites: Java 21, Maven 3.9+, PostgreSQL 15+
 
 ```bash
 # Set environment variables (or use a .env loader)
