@@ -1,0 +1,28 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    name: Claude Code Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: "--max-turns 5"
+          prompt: |
+            Review this pull request for the MyVibeReader project (Spring Boot 3 + Tauri/React).
+            Focus on:
+            - Correctness and potential bugs
+            - Security issues (JWT handling, input validation, SQL injection, XSS)
+            - Spring Boot best practices (proper HTTP status codes, exception handling, service/controller separation)
+            - Test coverage — we follow TDD, so new code should have tests
+            - React/TypeScript patterns and type safety
+            Post your findings as inline review comments on the relevant lines.
