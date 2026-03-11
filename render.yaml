@@ -1,0 +1,39 @@
+databases:
+  - name: myvibereader-db
+    databaseName: myvibereader
+    user: myvibereader
+    plan: free
+
+services:
+  - type: web
+    name: myvibereader-server
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    plan: free
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: docker
+      - key: DB_HOST
+        fromDatabase:
+          name: myvibereader-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: myvibereader-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: myvibereader-db
+          property: database
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: myvibereader-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: myvibereader-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: STORAGE_PATH
+        value: /app/storage

@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/myvibereader}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:myvibereader}}
     username: ${SPRING_DATASOURCE_USERNAME:myvibereader}
     password: ${SPRING_DATASOURCE_PASSWORD:myvibereader}
     driver-class-name: org.postgresql.Driver
