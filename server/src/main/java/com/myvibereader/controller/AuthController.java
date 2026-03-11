@@ -4,6 +4,7 @@ import com.myvibereader.dto.AuthRequest;
 import com.myvibereader.dto.AuthResponse;
 import com.myvibereader.service.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,11 +20,11 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody AuthRequest request) {
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
-        throw new UnsupportedOperationException("TODO");
+        return ResponseEntity.ok(authService.login(request));
     }
 }
