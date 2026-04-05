@@ -18,11 +18,10 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: "--max-turns 5"
           prompt: |
-            Review this pull request for the MyVibeReader project (Spring Boot 3 + Tauri/React).
+            Review this pull request for the MyVibeReader server (Spring Boot 3 + PostgreSQL).
             Focus on:
             - Correctness and potential bugs
-            - Security issues (JWT handling, input validation, SQL injection, XSS)
+            - Security issues (JWT handling, input validation, SQL injection)
             - Spring Boot best practices (proper HTTP status codes, exception handling, service/controller separation)
             - Test coverage — we follow TDD, so new code should have tests
-            - React/TypeScript patterns and type safety
             Post your findings as inline review comments on the relevant lines.
