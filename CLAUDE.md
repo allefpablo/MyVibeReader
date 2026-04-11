@@ -47,6 +47,15 @@ cd server && mvn compile
 
 Services receive plain user IDs (strings) rather than full `User` entities — look up the user in the service layer.
 
+### Supported ebook formats
+
+| Format | `Book.Format` enum value | Notes |
+|---|---|---|
+| EPUB | `EPUB` | Position tracked via EPUB CFI |
+| PDF | `PDF` | Position tracked via page + scroll offset |
+
+No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 100MB.
+
 ### Reading position format (`positionJson` column / `ProgressDto`)
 
 - EPUB: `{"cfi": "epubcfi(/6/4[chap01]!/4/2/2/1:0)"}`

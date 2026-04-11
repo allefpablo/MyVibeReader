@@ -54,6 +54,15 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 | `STORAGE_PATH` | `./storage` | Directory where book files are stored |
 | `SERVER_PORT` | `8080` | HTTP port |
 
+## Supported Formats
+
+| Format | Notes |
+|---|---|
+| **EPUB** | Position synced via EPUB Canonical Fragment Identifier (CFI) |
+| **PDF** | Position synced via page number + scroll offset |
+
+Max upload size: 100MB per file.
+
 ## Related
 
 - **Client**: [MyVibeReader-client](https://github.com/allefpablo/MyVibeReader-client) — Tauri v2 + React desktop/mobile app
