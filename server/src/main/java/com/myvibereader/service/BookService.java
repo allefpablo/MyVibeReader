@@ -67,9 +67,9 @@ public class BookService {
                     "Unsupported format. Only PDF and EPUB are accepted");
         }
 
-        String bookId = UUID.randomUUID().toString();
+        String s3KeyId = UUID.randomUUID().toString();
         String ext = FORMAT_EXTENSION.get(format);
-        String s3Key = userId + "/" + bookId + "." + ext;
+        String s3Key = userId + "/" + s3KeyId + "." + ext;
         String title = stripExtension(file.getOriginalFilename());
 
         try {
@@ -86,7 +86,6 @@ public class BookService {
         }
 
         Book book = new Book();
-        book.setId(bookId);
         book.setUser(userRepository.getReferenceById(userId));
         book.setTitle(title);
         book.setFormat(format);

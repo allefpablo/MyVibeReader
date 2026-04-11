@@ -55,7 +55,7 @@ class BookServiceTest {
         ArgumentCaptor<PutObjectRequest> putCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(putCaptor.capture(), any(RequestBody.class));
         assertThat(putCaptor.getValue().bucket()).isEqualTo(BUCKET);
-        assertThat(putCaptor.getValue().key()).endsWith(".pdf");
+        assertThat(putCaptor.getValue().key()).matches(USER_ID + "/[a-f0-9\\-]+\\.pdf");
         assertThat(putCaptor.getValue().contentType()).isEqualTo("application/pdf");
     }
 
