@@ -51,7 +51,10 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 | `SPRING_DATASOURCE_PASSWORD` | `myvibereader` | DB password |
 | `JWT_SECRET` | *(insecure default)* | 256-bit secret for JWT signing |
 | `JWT_EXPIRATION_MS` | `86400000` | Token lifetime in ms (default 24h) |
-| `STORAGE_PATH` | `./storage` | Directory where book files are stored |
+| `AWS_ACCESS_KEY_ID` | *(required)* | IAM access key with S3 permissions |
+| `AWS_SECRET_ACCESS_KEY` | *(required)* | IAM secret key |
+| `AWS_REGION` | `us-east-1` | AWS region where the bucket lives |
+| `S3_BUCKET_NAME` | *(required)* | Name of the S3 bucket for book files |
 | `SERVER_PORT` | `8080` | HTTP port |
 
 ## Architecture

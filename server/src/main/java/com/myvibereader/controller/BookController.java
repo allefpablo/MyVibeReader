@@ -2,9 +2,12 @@ package com.myvibereader.controller;
 
 import com.myvibereader.dto.BookDto;
 import com.myvibereader.service.BookService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 
 @RestController
@@ -18,13 +21,15 @@ public class BookController {
     }
 
     @GetMapping
-    public ResponseEntity<List<BookDto>> listBooks() {
-        throw new UnsupportedOperationException("TODO");
+    public ResponseEntity<List<BookDto>> listBooks(@AuthenticationPrincipal String userId) {
+        return ResponseEntity.ok(bookService.listBooks(userId));
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<BookDto> uploadBook(@RequestParam("file") MultipartFile file) {
-        throw new UnsupportedOperationException("TODO");
+    public ResponseEntity<BookDto> uploadBook(
+            @AuthenticationPrincipal String userId,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(bookService.uploadBook(userId, file));
     }
 
     @GetMapping("/{id}/download")
