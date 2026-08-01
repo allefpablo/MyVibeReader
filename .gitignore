@@ -11,6 +11,27 @@ server/.mvn/wrapper/maven-wrapper.jar
 *.log
 spring.log
 
+# Node / npm
+node_modules/
+dist/
+.npm
+
+# Tauri / Rust
+client/src-tauri/target/
+target/
+*.pdb
+*.d
+*.rlib
+*.rmeta
+*.dSYM/
+WixTools/
+*.cer
+*.p12
+*.pfx
+
+# Tauri Android / iOS
+client/src-tauri/gen/
+
 # Environment
 .env
 .env.local

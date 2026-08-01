@@ -15,7 +15,7 @@ docker compose down -v        # stop and wipe all data
 docker compose logs -f app    # tail server logs
 ```
 
-### Local development
+### Server (`server/`)
 
 ```bash
 # Run (dev profile uses create-drop DDL and verbose logging)
@@ -27,17 +27,34 @@ cd server && mvn test
 # Run a single test class
 cd server && mvn test -Dtest=AuthServiceTest
 
+# Run a single test method
+cd server && mvn test -Dtest=BookServiceTest#uploadBook_validPdf_savesBookAndUploadsToS3
+
 # Build JAR
 cd server && mvn package -DskipTests
 
 # Compile check only (no packaging)
 cd server && mvn compile
-
-# Run a single test method
-cd server && mvn test -Dtest=BookServiceTest#uploadBook_validPdf_savesBookAndUploadsToS3
 ```
 
-The client (`client/`) is a Tauri v2 + React 19 + TypeScript scaffold — pages currently export `null` and no app logic is wired up yet (`cd client && npm run dev` for Vite, `npm run tauri dev` for the desktop shell). Nearly all active work is server-side.
+### Client (`client/`)
+
+```bash
+# Vite dev server only (no Rust compile — fastest for UI work)
+npm run dev
+
+# Full Tauri desktop dev (compiles Rust + opens native window)
+npm run tauri dev
+
+# Android dev
+npm run tauri android dev
+
+# Production build (desktop)
+npm run tauri build
+
+# Type check
+npx tsc --noEmit
+```
 
 ## Architecture
 
@@ -61,6 +78,22 @@ Uploads are proxied through the backend (client → server → S3), not uploaded
 Implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/books`, `POST /api/books/upload`.
 Still stubbed (`throw new UnsupportedOperationException("TODO")`): `GET /api/books/{id}/download`, `DELETE /api/books/{id}`, `GET /api/progress/{bookId}`, `PUT /api/progress/{bookId}`. `GET /api/sync` is a placeholder returning "Hello World".
 
+### Client source structure (`src/`)
+
+- `pages/` — `LoginPage`, `LibraryPage`, `ReaderPage`
+- `hooks/` — `useProgress` (read/write position, queues offline updates), `useOnlineStatus` (network detection, triggers sync flush)
+- `store/appStore.ts` — Zustand store: auth token, current user, active book
+- `services/api.ts` — HTTP client for the Spring Boot server
+- `services/syncService.ts` — drains the offline position queue via `flushQueue()`
+- `router.tsx` — React Router routes: `/` (login), `/library`, `/reader/:bookId`
+
+### Offline sync flow
+
+1. `useProgress` writes position to both Zustand and `@tauri-apps/plugin-store` (disk)
+2. If the server request fails (offline), the update is pushed to the sync queue in `syncService`
+3. `useOnlineStatus` fires `syncService.flushQueue()` on reconnect
+4. Server uses `updatedAt` timestamp — last write wins
+
 ### Supported ebook formats
 
 | Format | `Book.Format` enum value | Notes |
@@ -81,8 +114,11 @@ No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 100MB.
 - Config lives in `application.yml` (+ `application-{dev,docker}.yml`), not `.properties`. App-specific settings are namespaced under `app.jwt.*` and `app.s3.*`
 - Spring profiles: `dev` (create-drop, verbose SQL), `docker` (create DDL, INFO logging), default (validate DDL — expects an existing schema)
 - Env vars: `SPRING_DATASOURCE_*` / `DB_*`, `JWT_SECRET` (256-bit min), `JWT_EXPIRATION_MS`, `SERVER_PORT`, and S3 — `S3_BUCKET_NAME`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- Tailwind v4 — use `@tailwindcss/vite` plugin; global import is in `src/globals.css`
+- CSS utilities: combine with `clsx` + `tailwind-merge` (use a `cn()` helper)
+- TanStack Query for all server state; Zustand only for client-only state
 - TDD: always write tests before implementing a feature or endpoint
 
 ## Testing
 
-Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`). CI (`.github/workflows/ci.yml`) runs `mvn test` on PRs to `main`.
+Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`). CI (`.github/workflows/ci.yml`) runs `mvn test` (server) and `tsc --noEmit` (client) on PRs to `main`.
