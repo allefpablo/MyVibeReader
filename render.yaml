@@ -35,5 +35,11 @@ services:
           property: password
       - key: JWT_SECRET
         generateValue: true
-      - key: STORAGE_PATH
-        value: /app/storage
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: AWS_REGION
+        value: us-east-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
