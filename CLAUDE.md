@@ -75,8 +75,7 @@ Uploads are proxied through the backend (client → server → S3), not uploaded
 
 ### Endpoints & implementation status
 
-Implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/books`, `POST /api/books/upload`.
-Still stubbed (`throw new UnsupportedOperationException("TODO")`): `GET /api/books/{id}/download`, `DELETE /api/books/{id}`, `GET /api/progress/{bookId}`, `PUT /api/progress/{bookId}`. `GET /api/sync` is a placeholder returning "Hello World".
+Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/books`, `POST /api/books/upload`, `GET /api/books/{id}/download`, `DELETE /api/books/{id}`, `GET /api/progress/{bookId}`, `PUT /api/progress/{bookId}`, `GET /api/sync` (returns sync status JSON).
 
 ### Client source structure (`src/`)
 

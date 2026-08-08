@@ -27,10 +27,11 @@ class SyncControllerTest {
 
     @Test
     @WithMockUser
-    void sync_returnsHelloWorld() throws Exception {
+    void sync_returnsStatusJson() throws Exception {
         mockMvc.perform(get("/api/sync"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Hello World"));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.service").value("MyVibeReader Sync Service"));
     }
 
     @Test
@@ -40,7 +41,8 @@ class SyncControllerTest {
         mockMvc.perform(get("/api/sync")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Hello World"));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.service").value("MyVibeReader Sync Service"));
     }
 
     @Test

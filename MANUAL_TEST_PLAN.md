@@ -110,7 +110,7 @@ All endpoints listed below are **100% fully implemented and verified**:
 | `POST` | `/api/auth/register` | No | ✅ Fully Implemented | `{"email": "...", "password": "..."}` | `201 Created` with JWT `token` & `user` object |
 | `POST` | `/api/auth/login` | No | ✅ Fully Implemented | `{"email": "...", "password": "..."}` | `200 OK` with JWT `token` & `user` object |
 | `GET` | `/actuator/health` | No | ✅ Fully Implemented | None | `200 OK` `{"status": "UP"}` |
-| `GET` | `/api/sync` | No | ✅ Fully Implemented | None | `200 OK` "Hello World" |
+| `GET` | `/api/sync` | No | ✅ Fully Implemented | None | `200 OK` `{"status":"UP", "service":"MyVibeReader Sync Service", "timestamp":"..."}` |
 | `GET` | `/api/books` | Yes | ✅ Fully Implemented | Header: `Authorization: Bearer <token>` | `200 OK` array of `BookDto` objects |
 | `POST` | `/api/books/upload` | Yes | ✅ Fully Implemented | Multipart Form: `file` (PDF/EPUB, max 100MB) | `201 Created` with `BookDto` metadata |
 | `GET` | `/api/books/{id}/download` | Yes | ✅ Fully Implemented | Path: `id` (Book UUID) | `200 OK` binary file stream from S3 |
