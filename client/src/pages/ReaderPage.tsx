@@ -5,6 +5,7 @@ import { useProgress } from '../hooks/useProgress';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { syncService } from '../services/syncService';
 import { api, BookDto } from '../services/api';
+import { fileCacheService } from '../services/fileCacheService';
 import { PdfViewer } from '../components/PdfViewer';
 import { EpubViewer } from '../components/EpubViewer';
 import {
@@ -50,7 +51,7 @@ export default function ReaderPage() {
     }
   }, [progress]);
 
-  // Download book binary from backend API
+  // Download book binary from backend API or local IndexedDB cache
   useEffect(() => {
     let isMounted = true;
     if (!bookId) return;
@@ -58,21 +59,30 @@ export default function ReaderPage() {
     setDownloading(true);
     setDownloadError(null);
 
-    api
-      .downloadBook(bookId)
-      .then((blob) => {
-        if (isMounted) {
-          setBookBlob(blob);
-          setDownloading(false);
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          console.error('Failed to download book blob:', err);
-          setDownloadError(err.message || 'Failed to download book content');
-          setDownloading(false);
-        }
-      });
+    fileCacheService.getBookFile(bookId).then((cachedBlob) => {
+      if (cachedBlob && isMounted) {
+        setBookBlob(cachedBlob);
+        setDownloading(false);
+        return;
+      }
+
+      api
+        .downloadBook(bookId)
+        .then((blob) => {
+          if (isMounted) {
+            setBookBlob(blob);
+            setDownloading(false);
+            fileCacheService.saveBookFile(bookId, blob);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            console.error('Failed to download book blob:', err);
+            setDownloadError(err.message || 'Failed to download book content');
+            setDownloading(false);
+          }
+        });
+    });
 
     return () => {
       isMounted = false;

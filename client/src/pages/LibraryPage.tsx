@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { api, BookDto } from '../services/api';
+import { fileCacheService } from '../services/fileCacheService';
 import {
   BookOpen,
   UploadCloud,
@@ -49,8 +50,9 @@ export default function LibraryPage() {
   // Delete Mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteBook(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       setDeletingId(null);
+      fileCacheService.deleteBookFile(id);
       queryClient.invalidateQueries({ queryKey: ['books'] });
     },
   });

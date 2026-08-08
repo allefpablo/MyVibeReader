@@ -163,6 +163,7 @@ erDiagram
 * **Tauri v2 Native Shell**: Hosts cross-platform webview for macOS desktop and Android mobile native builds.
 * **React 18 & Router**: Declarative UI pages (`LoginPage`, `LibraryPage`, `ReaderPage`).
 * **Zustand & `@tauri-apps/plugin-store`**: Synchronous local state combined with persistent disk storage for offline access.
+* **IndexedDB Binary Cache (`fileCacheService`)**: Stores downloaded PDF and EPUB binary blobs locally for offline reading without network requests to S3.
 * **Offline Sync Engine (`useOnlineStatus` + `syncService`)**: Listens to browser network status and drains the persistent queue via `PUT /api/progress/{bookId}` upon reconnection.
 
 ### 4.2 Server Components
