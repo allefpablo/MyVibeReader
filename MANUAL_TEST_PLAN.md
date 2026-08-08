@@ -267,13 +267,14 @@ All endpoints listed below are **100% fully implemented and verified**:
   5. Click "Download" icon $\rightarrow$ verify browser downloads file.
   6. Click "Delete" icon $\rightarrow$ click "Confirm" $\rightarrow$ verify book card is removed.
 
-#### Test Case 4.3: Reader Page & Offline Queue Auto-Sync (`ReaderPage.tsx`)
+#### Test Case 4.3: Real PDF/EPUB Reader View & Offline Sync (`ReaderPage.tsx`)
 * **Steps**:
-  1. Click "Read Now" on any book card to open `/reader/:bookId`.
-  2. Verify top nav shows "Online" badge with green indicator.
-  3. Click "Next" page button to navigate to page 5.
-  4. Turn off computer Wi-Fi / set browser DevTools to Offline mode.
-  5. Observe top nav update to "Offline (Queued 1)" badge with amber indicator.
-  6. Navigate to page 10 $\rightarrow$ verify page position updates locally without UI error.
-  7. Turn Wi-Fi back ON / set DevTools back to Online mode.
-  8. Observe `useOnlineStatus` trigger `syncService.flushQueue()` $\rightarrow$ badge updates back to "Online" and server confirms position `{"page": 10}`.
+  1. Click "Read Now" on a PDF book card to open `/reader/:bookId`.
+  2. Verify binary blob is retrieved via `api.downloadBook(bookId)` and `PdfViewer.tsx` renders PDF pages onto canvas with zoom and page controls.
+  3. Click "Read Now" on an EPUB book card to open `/reader/:bookId`.
+  4. Verify `EpubViewer.tsx` loads EPUB chapter content and tracks CFI section location.
+  5. Verify top nav shows "Online" badge with green indicator.
+  6. Turn off computer Wi-Fi / set browser DevTools to Offline mode.
+  7. Navigate pages $\rightarrow$ observe top nav update to "Offline (Queued N)" badge with amber indicator.
+  8. Re-enable Wi-Fi / set DevTools back to Online mode.
+  9. Observe `useOnlineStatus` trigger `syncService.flushQueue()` $\rightarrow$ badge updates back to "Online" and server confirms position.
