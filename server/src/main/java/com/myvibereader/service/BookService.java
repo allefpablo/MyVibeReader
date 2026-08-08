@@ -9,8 +9,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -95,11 +99,40 @@ public class BookService {
     }
 
     public byte[] downloadBook(String userId, String bookId) {
-        throw new UnsupportedOperationException("TODO");
+        Book book = bookRepository.findByIdAndUserId(bookId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
+
+        try {
+            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(
+                    GetObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(book.getStoragePath())
+                            .build()
+            );
+            return objectBytes.asByteArray();
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to download file from storage");
+        }
     }
 
     public void deleteBook(String userId, String bookId) {
-        throw new UnsupportedOperationException("TODO");
+        Book book = bookRepository.findByIdAndUserId(bookId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
+
+        try {
+            s3Client.deleteObject(
+                    DeleteObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(book.getStoragePath())
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to delete file from storage");
+        }
+
+        bookRepository.delete(book);
     }
 
     private BookDto toDto(Book book) {

@@ -22,9 +22,9 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(BookController.class)
@@ -97,5 +97,27 @@ class BookControllerTest {
     void listBooks_noAuth_returns403() throws Exception {
         mockMvc.perform(get("/api/books"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void downloadBook_authenticatedUser_returns200() throws Exception {
+        String token = jwtUtil.generateToken("user-123");
+        when(bookService.downloadBook("user-123", "book-1")).thenReturn("sample bytes".getBytes());
+
+        mockMvc.perform(get("/api/books/book-1/download")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"book-book-1\""))
+                .andExpect(content().bytes("sample bytes".getBytes()));
+    }
+
+    @Test
+    void deleteBook_authenticatedUser_returns204() throws Exception {
+        String token = jwtUtil.generateToken("user-123");
+        doNothing().when(bookService).deleteBook("user-123", "book-1");
+
+        mockMvc.perform(delete("/api/books/book-1")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
     }
 }
