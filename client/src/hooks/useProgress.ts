@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, ProgressDto } from '../services/api';
 import { syncService } from '../services/syncService';
 
@@ -6,6 +6,8 @@ export function useProgress(bookId: string) {
   const [progress, setProgress] = useState<ProgressDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load progress initially
   useEffect(() => {
@@ -33,10 +35,13 @@ export function useProgress(bookId: string) {
 
     return () => {
       isMounted = false;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
     };
   }, [bookId]);
 
-  const updatePosition = useCallback(
+  const updatePositionImmediate = useCallback(
     async (positionJson: string, deviceId = 'web-client') => {
       const now = new Date().toISOString();
       const newProgress: ProgressDto = {
@@ -64,5 +69,27 @@ export function useProgress(bookId: string) {
     [bookId]
   );
 
-  return { progress, loading, error, updatePosition };
+  const updatePosition = useCallback(
+    (positionJson: string, deviceId = 'web-client', debounceMs = 500) => {
+      const now = new Date().toISOString();
+      // Update local React state immediately for snappy UI
+      setProgress({
+        bookId,
+        positionJson,
+        deviceId,
+        updatedAt: now,
+      });
+
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(() => {
+        updatePositionImmediate(positionJson, deviceId);
+      }, debounceMs);
+    },
+    [bookId, updatePositionImmediate]
+  );
+
+  return { progress, loading, error, updatePosition, updatePositionImmediate };
 }

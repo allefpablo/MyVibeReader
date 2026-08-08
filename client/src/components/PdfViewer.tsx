@@ -9,9 +9,10 @@ interface PdfViewerProps {
   blob: Blob;
   initialPage?: number;
   onPageChange?: (page: number, totalPages: number) => void;
+  onScroll?: (scrollY: number) => void;
 }
 
-export function PdfViewer({ blob, initialPage = 1, onPageChange }: PdfViewerProps) {
+export function PdfViewer({ blob, initialPage = 1, onPageChange, onScroll }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -192,6 +193,7 @@ export function PdfViewer({ blob, initialPage = 1, onPageChange }: PdfViewerProp
       {/* Canvas Rendering Container */}
       <div
         ref={containerRef}
+        onScroll={(e) => onScroll && onScroll(Math.round(e.currentTarget.scrollTop))}
         className="w-full flex justify-center bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 overflow-auto min-h-[500px] shadow-2xl relative"
       >
         {rendering && (

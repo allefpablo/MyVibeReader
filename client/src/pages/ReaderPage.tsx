@@ -101,6 +101,11 @@ export default function ReaderPage() {
     updatePosition(positionJson);
   };
 
+  const handlePdfScroll = (scrollY: number) => {
+    const positionJson = JSON.stringify({ page: initialPage, scrollY });
+    updatePosition(positionJson);
+  };
+
   const handleEpubCfiChange = (cfi: string) => {
     const positionJson = JSON.stringify({ cfi });
     updatePosition(positionJson);
@@ -178,6 +183,7 @@ export default function ReaderPage() {
             blob={bookBlob}
             initialPage={initialPage}
             onPageChange={handlePdfPageChange}
+            onScroll={handlePdfScroll}
           />
         ) : bookBlob && format === 'EPUB' ? (
           <EpubViewer
