@@ -100,4 +100,13 @@ class AuthControllerTest {
                         .content("{\"email\":\"bad\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void cors_preflight_returns200WithHeaders() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/api/auth/login")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Origin", "http://localhost:1420"))
+                .andExpect(status().isOk())
+                .andExpect(header().exists("Access-Control-Allow-Origin"));
+    }
 }

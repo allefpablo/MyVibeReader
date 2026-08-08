@@ -8,13 +8,21 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 interface PdfViewerProps {
   blob: Blob;
   initialPage?: number;
+  initialScrollY?: number;
   onPageChange?: (page: number, totalPages: number) => void;
   onScroll?: (scrollY: number) => void;
 }
 
-export function PdfViewer({ blob, initialPage = 1, onPageChange, onScroll }: PdfViewerProps) {
+export function PdfViewer({
+  blob,
+  initialPage = 1,
+  initialScrollY = 0,
+  onPageChange,
+  onScroll,
+}: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const hasRestoredScrollRef = useRef<boolean>(false);
 
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(initialPage);
@@ -96,7 +104,13 @@ export function PdfViewer({ blob, initialPage = 1, onPageChange, onScroll }: Pdf
         return page.render(renderContext).promise;
       })
       .then(() => {
-        if (!isCancelled) setRendering(false);
+        if (!isCancelled) {
+          setRendering(false);
+          if (!hasRestoredScrollRef.current && initialScrollY > 0 && containerRef.current) {
+            containerRef.current.scrollTop = initialScrollY;
+            hasRestoredScrollRef.current = true;
+          }
+        }
       })
       .catch((err) => {
         if (!isCancelled) {

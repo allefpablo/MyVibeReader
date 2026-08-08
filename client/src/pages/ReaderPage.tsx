@@ -28,6 +28,7 @@ export default function ReaderPage() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const [initialPage, setInitialPage] = useState<number>(1);
+  const [initialScrollY, setInitialScrollY] = useState<number>(0);
   const [initialCfi, setInitialCfi] = useState<string | undefined>(undefined);
 
   // Fetch book metadata
@@ -44,6 +45,7 @@ export default function ReaderPage() {
       try {
         const parsed = JSON.parse(progress.positionJson);
         if (parsed.page) setInitialPage(parsed.page);
+        if (parsed.scrollY) setInitialScrollY(parsed.scrollY);
         if (parsed.cfi) setInitialCfi(parsed.cfi);
       } catch (e) {
         console.warn('Failed to parse positionJson', e);
@@ -182,6 +184,7 @@ export default function ReaderPage() {
           <PdfViewer
             blob={bookBlob}
             initialPage={initialPage}
+            initialScrollY={initialScrollY}
             onPageChange={handlePdfPageChange}
             onScroll={handlePdfScroll}
           />
