@@ -30,52 +30,143 @@ MyVibeReader/
 - **Native shell**: Tauri v2 (Rust)
 - **Offline sync**: `@tauri-apps/plugin-store` persists reading positions locally; synced to server on reconnect
 
-## Getting Started
+## Getting Started & Development
 
-### Server via Docker (recommended)
+### Prerequisites
 
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+- **Java**: JDK 21+
+- **Node.js**: v20+ with `npm`
+- **Docker**: Docker Desktop (recommended for database and containerized runs)
+- **Rust**: Required only for compiling native desktop binaries via Tauri v2
+- **Android Studio / SDK**: Required only for native Android builds
+
+---
+
+### Environment Setup
+
+Copy `.env.example` to `.env` in the repository root and configure secrets:
 
 ```bash
-cp .env.example .env       # fill in JWT_SECRET at minimum
-docker compose up --build  # starts PostgreSQL + Spring Boot on port 8080
+cp .env.example .env
 ```
 
-To stop:
-```bash
-docker compose down        # keeps data
-docker compose down -v     # wipes data volumes too
+Ensure `.env` contains valid AWS S3 and database parameters:
+```env
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/myvibereader
+SPRING_DATASOURCE_USERNAME=myvibereader
+SPRING_DATASOURCE_PASSWORD=myvibereader
+JWT_SECRET=super-secret-key-at-least-256-bits-long-for-hmac-sha256
+JWT_EXPIRATION_MS=86400000
+SERVER_PORT=8080
+AWS_ACCESS_KEY_ID=your-aws-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret
+AWS_REGION=us-east-1
+S3_BUCKET_NAME=myvibereader-storage-bucket
 ```
 
-### Server (local)
+---
 
-Prerequisites: Java 21, Maven 3.9+, PostgreSQL 15+
+## Server (`server/`)
+
+### 1. Run Server via Docker Compose (Recommended)
+
+Starts PostgreSQL 16 database and Spring Boot server in isolated containers:
 
 ```bash
-# Set environment variables (or use a .env loader)
-export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/myvibereader
-export SPRING_DATASOURCE_USERNAME=myvibereader
-export SPRING_DATASOURCE_PASSWORD=myvibereader
-export JWT_SECRET=<256-bit-secret>
+# Build image and start services
+docker compose up --build
 
+# Run in background (detached mode)
+docker compose up -d --build
+
+# View server logs
+docker compose logs -f app
+
+# Stop containers (database volume preserved)
+docker compose down
+
+# Stop containers and wipe database volume
+docker compose down -v
+```
+*Server runs at `http://localhost:8080`.*
+
+### 2. Run Server Locally (Maven)
+
+Requires local PostgreSQL running on `localhost:5432`:
+
+```bash
 cd server
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+# Run using Maven wrapper with dev profile (auto table creation)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-### Client (desktop)
+### 3. Run Server Tests
+
+```bash
+cd server
+./mvnw test
+```
+
+### 4. Build Production JAR
+
+```bash
+cd server
+./mvnw clean package -DskipTests
+```
+*Executable JAR built at `server/target/server-0.0.1-SNAPSHOT.jar`.*
+
+---
+
+## Client (`client/`)
+
+Navigate to the `client/` directory and install dependencies:
 
 ```bash
 cd client
 npm install
+```
+
+### 1. Run Browser Dev Server (Fastest for UI Development)
+
+Uses Vite dev server with pre-configured API proxy to `http://localhost:8080`:
+
+```bash
+npm run dev
+```
+*Access at `http://localhost:1420` or `http://localhost:5173`.*
+
+### 2. Run Native Desktop Dev Mode (macOS / Linux / Windows)
+
+Compiles Rust native shell and launches native desktop app window:
+
+```bash
 npm run tauri dev
 ```
 
-### Client (Android)
+### 3. Build Production Native Desktop Application
+
+Compiles optimized release binary and installer bundle:
 
 ```bash
-cd client
-npm run tauri android init   # first time only
+npm run tauri build
+```
+*Production installer output saved under `client/src-tauri/target/release/bundle/`.*
+
+### 4. Run Native Android Dev Mode
+
+```bash
+# Initialize Android project (first time only)
+npm run tauri android init
+
+# Run Android dev emulator / connected device
 npm run tauri android dev
+```
+
+### 5. Check TypeScript Types
+
+```bash
+npx tsc --noEmit
 ```
 
 ## Environment Variables
