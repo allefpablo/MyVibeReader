@@ -68,6 +68,13 @@ export function PdfViewer({
     };
   }, [blob]);
 
+  useEffect(() => {
+    if (pdfDoc && initialPage > 0 && initialPage !== currentPage) {
+      const targetPage = Math.min(Math.max(1, initialPage), totalPages);
+      setCurrentPage(targetPage);
+    }
+  }, [initialPage, pdfDoc, totalPages]);
+
   // Render current page to Canvas
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current) return;

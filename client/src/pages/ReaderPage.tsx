@@ -21,7 +21,7 @@ export default function ReaderPage() {
   const { bookId = '' } = useParams<{ bookId: string }>();
   const navigate = useNavigate();
   const isOnline = useOnlineStatus();
-  const { progress, loading: progressLoading, updatePosition } = useProgress(bookId);
+  const { progress, loading: progressLoading, updatePosition, flushPendingUpdate } = useProgress(bookId);
 
   const [bookBlob, setBookBlob] = useState<Blob | null>(null);
   const [downloading, setDownloading] = useState<boolean>(true);
@@ -30,6 +30,9 @@ export default function ReaderPage() {
   const [initialPage, setInitialPage] = useState<number>(1);
   const [initialScrollY, setInitialScrollY] = useState<number>(0);
   const [initialCfi, setInitialCfi] = useState<string | undefined>(undefined);
+
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [currentScrollY, setCurrentScrollY] = useState<number>(0);
 
   // Fetch book metadata
   const { data: books = [] } = useQuery<BookDto[]>({
@@ -44,9 +47,17 @@ export default function ReaderPage() {
     if (progress?.positionJson) {
       try {
         const parsed = JSON.parse(progress.positionJson);
-        if (parsed.page) setInitialPage(parsed.page);
-        if (parsed.scrollY) setInitialScrollY(parsed.scrollY);
-        if (parsed.cfi) setInitialCfi(parsed.cfi);
+        if (parsed.page) {
+          setInitialPage(parsed.page);
+          setCurrentPage(parsed.page);
+        }
+        if (parsed.scrollY !== undefined) {
+          setInitialScrollY(parsed.scrollY);
+          setCurrentScrollY(parsed.scrollY);
+        }
+        if (parsed.cfi) {
+          setInitialCfi(parsed.cfi);
+        }
       } catch (e) {
         console.warn('Failed to parse positionJson', e);
       }
@@ -99,18 +110,27 @@ export default function ReaderPage() {
   }, [isOnline]);
 
   const handlePdfPageChange = (page: number) => {
-    const positionJson = JSON.stringify({ page, scrollY: 0 });
+    setCurrentPage(page);
+    const positionJson = JSON.stringify({ page, scrollY: currentScrollY });
     updatePosition(positionJson);
   };
 
   const handlePdfScroll = (scrollY: number) => {
-    const positionJson = JSON.stringify({ page: initialPage, scrollY });
+    setCurrentScrollY(scrollY);
+    const positionJson = JSON.stringify({ page: currentPage, scrollY });
     updatePosition(positionJson);
   };
 
   const handleEpubCfiChange = (cfi: string) => {
+    if (!cfi) return;
+    setInitialCfi(cfi);
     const positionJson = JSON.stringify({ cfi });
     updatePosition(positionJson);
+  };
+
+  const handleBackToLibrary = () => {
+    flushPendingUpdate();
+    navigate('/library');
   };
 
   const queueLength = syncService.getQueueLength();
@@ -122,7 +142,7 @@ export default function ReaderPage() {
       <header className="h-16 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/library')}
+            onClick={handleBackToLibrary}
             className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl transition cursor-pointer"
             title="Back to Library"
           >

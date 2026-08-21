@@ -95,6 +95,12 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
     };
   }, [blob]);
 
+  useEffect(() => {
+    if (renditionRef.current && initialCfi && initialCfi !== currentLocation) {
+      renditionRef.current.display(initialCfi).catch(() => {});
+    }
+  }, [initialCfi]);
+
   const handleNext = () => {
     if (renditionRef.current) {
       renditionRef.current.next();
