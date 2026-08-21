@@ -14,8 +14,17 @@ const STORAGE_KEY_TOKEN = 'myvibereader_token';
 const STORAGE_KEY_USER = 'myvibereader_user';
 
 const initialToken = localStorage.getItem(STORAGE_KEY_TOKEN);
-const initialUserStr = localStorage.getItem(STORAGE_KEY_USER);
-const initialUser: UserDto | null = initialUserStr ? JSON.parse(initialUserStr) : null;
+let initialUser: UserDto | null = null;
+
+try {
+  const initialUserStr = localStorage.getItem(STORAGE_KEY_USER);
+  if (initialUserStr && initialUserStr !== 'undefined') {
+    initialUser = JSON.parse(initialUserStr);
+  }
+} catch (e) {
+  console.warn('Failed to parse stored user from localStorage:', e);
+  localStorage.removeItem(STORAGE_KEY_USER);
+}
 
 export const useAppStore = create<AppState>((set) => ({
   token: initialToken,

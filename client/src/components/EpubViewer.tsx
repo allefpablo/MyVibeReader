@@ -42,16 +42,29 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
 
         renditionRef.current = rendition;
 
-        rendition.display(initialCfi || undefined).then(() => {
-          if (isMounted) setLoading(false);
-        });
+        const displayPromise = initialCfi
+          ? rendition.display(initialCfi).catch(() => rendition.display())
+          : rendition.display();
+
+        displayPromise
+          .then(() => {
+            if (isMounted) setLoading(false);
+          })
+          .catch((err) => {
+            if (!isMounted) return;
+            console.error('Failed to display EPUB rendition:', err);
+            setError('Failed to render EPUB file.');
+            setLoading(false);
+          });
 
         rendition.on('relocated', (location: any) => {
           if (!isMounted) return;
-          const cfi = location.start.cfi;
-          setCurrentLocation(cfi);
-          if (onLocationChange) {
-            onLocationChange(cfi);
+          const cfi = location?.start?.cfi;
+          if (cfi) {
+            setCurrentLocation(cfi);
+            if (onLocationChange) {
+              onLocationChange(cfi);
+            }
           }
         });
       })
@@ -81,15 +94,6 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
       renditionRef.current.prev();
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 space-y-3">
-        <RotateCw className="w-8 h-8 text-emerald-400 animate-spin" />
-        <p className="text-xs text-slate-400">Loading EPUB book content...</p>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -123,10 +127,15 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
       </div>
 
       {/* EPUB Rendition Container */}
-      <div
-        ref={containerRef}
-        className="w-full bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-[600px] shadow-2xl overflow-hidden text-slate-100"
-      />
+      <div className="w-full relative bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-[600px] shadow-2xl overflow-hidden text-slate-100">
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-10 space-y-3">
+            <RotateCw className="w-8 h-8 text-emerald-400 animate-spin" />
+            <p className="text-xs text-slate-400">Loading EPUB book content...</p>
+          </div>
+        )}
+        <div ref={containerRef} className="w-full h-full" />
+      </div>
     </div>
   );
 }
