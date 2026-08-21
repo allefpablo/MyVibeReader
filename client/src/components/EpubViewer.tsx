@@ -40,6 +40,18 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
           spread: 'auto',
         });
 
+        // Enforce crisp white background and clear readable dark text for EPUB content
+        rendition.themes.default({
+          body: {
+            'background': '#ffffff !important',
+            'color': '#111827 !important',
+            'padding': '16px !important',
+          },
+          'p, span, div, h1, h2, h3, h4, h5, h6, li, a': {
+            'color': '#111827 !important',
+          },
+        });
+
         renditionRef.current = rendition;
 
         const displayPromise = initialCfi
@@ -127,14 +139,14 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
       </div>
 
       {/* EPUB Rendition Container */}
-      <div className="w-full relative bg-slate-900 border border-slate-800/80 rounded-2xl p-6 h-[600px] shadow-2xl overflow-hidden text-slate-100">
+      <div className="w-full relative bg-slate-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 h-[600px] shadow-2xl overflow-hidden">
         {loading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 z-10 space-y-3">
             <RotateCw className="w-8 h-8 text-emerald-400 animate-spin" />
             <p className="text-xs text-slate-400">Loading EPUB book content...</p>
           </div>
         )}
-        <div ref={containerRef} className="w-full h-full" />
+        <div ref={containerRef} className="w-full h-full bg-white text-slate-900 rounded-xl overflow-hidden shadow-inner" />
       </div>
     </div>
   );
