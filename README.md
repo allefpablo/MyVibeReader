@@ -179,6 +179,19 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-u
 npx tsc --noEmit
 ```
 
+### 6. Automated Releases (GitHub Actions)
+
+Releases are fully automated via GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)). To trigger a multi-platform release with Server, macOS, and Android artifacts:
+
+```bash
+# Push a version tag to automatically build and publish release
+git tag v1.0.0
+git push origin v1.0.0
+
+# Or trigger via GitHub CLI
+gh workflow run release.yml -f tag_name=v1.0.0
+```
+
 ## Environment Variables
 
 ### Client (`client/`)

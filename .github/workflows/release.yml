@@ -1,0 +1,174 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-server:
+    name: Build Backend Server (Java 21)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Package Spring Boot Executable JAR
+        run: ./mvnw clean package -DskipTests
+
+      - name: Rename Server Artifact
+        run: cp target/myvibereader-server-*.jar ../MyVibeReader-Server.jar
+
+      - name: Upload Server Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-jar
+          path: MyVibeReader-Server.jar
+
+  build-macos:
+    name: Build macOS Desktop Client (Tauri v2)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS Tauri Application & DMG
+        run: npm run tauri build
+
+      - name: Package macOS App Bundle
+        run: |
+          tar -czf ../MyVibeReader-macOS-aarch64.app.tar.gz -C src-tauri/target/release/bundle/macos client.app
+          cp src-tauri/target/release/bundle/dmg/*.dmg ../MyVibeReader-macOS-aarch64.dmg
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries
+          path: |
+            MyVibeReader-macOS-aarch64.dmg
+            MyVibeReader-macOS-aarch64.app.tar.gz
+
+  build-android:
+    name: Build Android Client (Tauri v2)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Set up Android SDK & NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK and Android Build Tools
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35" "platforms;android-36"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Set up Rust & Android Targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Initialize and Build Android APKs
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: |
+          npx tauri android init
+          npx tauri android build --debug --apk
+          npx tauri android build --apk
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk ../MyVibeReader-Android-debug.apk
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk ../MyVibeReader-Android-release-unsigned.apk
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-binaries
+          path: |
+            MyVibeReader-Android-debug.apk
+            MyVibeReader-Android-release-unsigned.apk
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-server, build-macos, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Server Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: server-jar
+          path: release-assets
+
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-binaries
+          path: release-assets
+
+      - name: Download Android Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-binaries
+          path: release-assets
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag_name }}
+          name: ${{ github.ref_name || inputs.tag_name }}
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -126,6 +126,14 @@ No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 100MB.
 - TanStack Query for all server state; Zustand only for client-only state
 - TDD: always write tests before implementing a feature or endpoint
 
+## Releases & CI/CD
+
+All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APKs) are **fully automated via GitHub Actions** ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+
+- Triggered automatically on tag push (`git tag v1.0.0 && git push origin v1.0.0`) or manually via `gh workflow run release.yml -f tag_name=v1.0.0`.
+- Matrix builds the Spring Boot JAR, macOS DMG, and 16 KB page-aligned Android APKs on GitHub runners, then publishes the release with all attached binaries.
+- **Rule for future sessions:** Always use the automated GitHub Actions release pipeline for creating releases.
+
 ## Testing
 
 Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`). CI (`.github/workflows/ci.yml`) runs `mvn test` (server) and `tsc --noEmit` (client) on PRs to `main`.
