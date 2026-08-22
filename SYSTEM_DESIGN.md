@@ -160,11 +160,12 @@ erDiagram
 ## 4. Key Component Responsibilities
 
 ### 4.1 Client Components
-* **Tauri v2 Native Shell**: Hosts cross-platform webview for macOS desktop and Android mobile native builds.
+* **Tauri v2 Native Shell**: Hosts cross-platform webview for macOS desktop and Android mobile native builds. Includes Rust build script configuration for Android 15+ 16 KB ELF page alignment (`-Wl,-z,max-page-size=16384`).
 * **React 18 & Router**: Declarative UI pages (`LoginPage`, `LibraryPage`, `ReaderPage`).
+* **TanStack Query Auto-Sync**: Manages server state with 3-second polling interval on library queries (`refetchInterval: 3000`) and window focus refetching (`refetchOnWindowFocus: true`) for real-time cross-device library synchrony.
 * **Zustand & `@tauri-apps/plugin-store`**: Synchronous local state combined with persistent disk storage for offline access.
 * **IndexedDB Binary Cache (`fileCacheService`)**: Stores downloaded PDF and EPUB binary blobs locally for offline reading without network requests to S3.
-* **Offline Sync Engine (`useOnlineStatus` + `syncService`)**: Listens to browser network status and drains the persistent queue via `PUT /api/progress/{bookId}` upon reconnection.
+* **Offline Sync Engine (`useOnlineStatus` + `syncService` + `useProgress`)**: Listens to network status, ensures non-destructive initial rendering in PDF and EPUB viewers, and drains the persistent queue via `PUT /api/progress/{bookId}` upon reconnection.
 
 ### 4.2 Server Components
 * **Stateless JWT Security Filter (`JwtAuthFilter`)**: Intercepts requests, validates Bearer tokens via `JwtUtil`, and injects user identity into Spring Security context (`@AuthenticationPrincipal String userId`).

@@ -278,3 +278,22 @@ All endpoints listed below are **100% fully implemented and verified**:
   7. Navigate pages $\rightarrow$ observe top nav update to "Offline (Queued N)" badge with amber indicator.
   8. Re-enable Wi-Fi / set DevTools back to Online mode.
   9. Observe `useOnlineStatus` trigger `syncService.flushQueue()` $\rightarrow$ badge updates back to "Online" and server confirms position.
+
+#### Test Case 4.4: Cross-Device Multi-Client Sync (Mac & Android)
+* **Steps**:
+  1. Log into the same account (`teste@teste.com`) on both the macOS desktop client (`npm run tauri dev`) and connected Android device (`app-universal-debug.apk`).
+  2. Upload a new PDF/EPUB on Android $\rightarrow$ verify it appears automatically on the macOS library within 3 seconds without refreshing.
+  3. Upload a new PDF/EPUB on macOS $\rightarrow$ verify it appears automatically on the Android library within 3 seconds.
+  4. Open a book on Android and advance to page 7.
+  5. Return to library on Android and open the same book on macOS $\rightarrow$ verify it opens directly on page 7.
+  6. Advance to page 15 on macOS.
+  7. Return to library on macOS and open the book on Android $\rightarrow$ verify it opens directly on page 15.
+
+#### Test Case 4.5: Android 16 KB Page Size Compatibility Verification
+* **Steps**:
+  1. Inspect ELF alignment of native shared libraries:
+     ```bash
+     $NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-readelf -l client/src-tauri/target/aarch64-linux-android/debug/libclient_lib.so | grep -E "LOAD|Align"
+     ```
+  2. Verify `Align` value on all `LOAD` segments is `0x4000` (16 KB) or `0x10000` (64 KB).
+  3. Launch app on an Android 15 / 16 KB page-size kernel device $\rightarrow$ verify no ELF alignment or 16 KB compatibility warnings appear.

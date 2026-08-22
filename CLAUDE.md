@@ -46,8 +46,11 @@ npm run dev
 # Full Tauri desktop dev (compiles Rust + opens native window)
 npm run tauri dev
 
-# Android dev
-npm run tauri android dev
+# Android dev / build
+npm run tauri android init                     # First time only
+npx tauri android build --debug --apk          # Build debug APK (16 KB page-aligned)
+adb reverse tcp:8080 tcp:8080                  # Route phone localhost:8080 to Mac backend
+adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 
 # Production build (desktop)
 npm run tauri build
@@ -79,19 +82,24 @@ Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/
 
 ### Client source structure (`src/`)
 
-- `pages/` — `LoginPage`, `LibraryPage`, `ReaderPage`
-- `hooks/` — `useProgress` (read/write position, queues offline updates), `useOnlineStatus` (network detection, triggers sync flush)
+- `pages/` — `LoginPage`, `LibraryPage` (polls every 3s via `refetchInterval`), `ReaderPage`
+- `hooks/` — `useProgress` (reads server state first, queues offline updates), `useOnlineStatus` (network detection, triggers sync flush)
 - `store/appStore.ts` — Zustand store: auth token, current user, active book
-- `services/api.ts` — HTTP client for the Spring Boot server
+- `services/api.ts` — HTTP client for the Spring Boot server (uses `import.meta.env.VITE_API_URL || 'http://localhost:8080/api'`)
 - `services/syncService.ts` — drains the offline position queue via `flushQueue()`
 - `router.tsx` — React Router routes: `/` (login), `/library`, `/reader/:bookId`
 
-### Offline sync flow
+### Cross-device & offline sync flow
 
-1. `useProgress` writes position to both Zustand and `@tauri-apps/plugin-store` (disk)
-2. If the server request fails (offline), the update is pushed to the sync queue in `syncService`
-3. `useOnlineStatus` fires `syncService.flushQueue()` on reconnect
-4. Server uses `updatedAt` timestamp — last write wins
+1. **Auto Library Sync:** `LibraryPage` queries books with `refetchInterval: 3000` and `refetchOnWindowFocus: true`, automatically displaying new/deleted books across active devices.
+2. **Server Truth for Reading Progress:** When opening a book, `useProgress` treats `serverProgress` as authoritative unless un-synced offline updates exist in `syncService.getQueue()`.
+3. **Non-Destructive Initial Render:** Viewer components (`PdfViewer`, `EpubViewer`) do not fire progress updates during initial document load or programmatic scroll restoration.
+4. **Offline Queue:** If network fails during active reading, updates are queued in `syncService` and flushed automatically upon reconnection.
+5. Server uses `updatedAt` timestamp — last write wins.
+
+### Android 16 KB Page Alignment (Android 15+)
+
+`client/src-tauri/build.rs` passes `-Wl,-z,max-page-size=16384` to ensure native `.so` binaries satisfy Android 15+ 16 KB page size kernel checks.
 
 ### Supported ebook formats
 

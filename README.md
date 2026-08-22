@@ -153,15 +153,25 @@ npm run tauri build
 ```
 *Production installer output saved under `client/src-tauri/target/release/bundle/`.*
 
-### 4. Run Native Android Dev Mode
+### 4. Build and Run Native Android Application
+
+Android builds require Android SDK (API 34+), NDK (27+ recommended), and Rust compilation targets (`aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android`, `i686-linux-android`).
 
 ```bash
-# Initialize Android project (first time only)
+# Initialize Android project structure (first time only)
 npm run tauri android init
 
-# Run Android dev emulator / connected device
-npm run tauri android dev
+# Build debug APK (16 KB ELF page alignment is enabled automatically in build.rs)
+npx tauri android build --debug --apk
+
+# Connect physical device via USB and forward backend port (8080)
+adb reverse tcp:8080 tcp:8080
+
+# Install generated APK onto connected device
+adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
+
+> **Note on 16 KB Page Size:** Android 15+ kernel devices (e.g. Galaxy Z Fold6) require 16 KB ELF page alignment for native libraries (`.so`). MyVibeReader automatically passes `-Wl,-z,max-page-size=16384` during Rust Android compilation.
 
 ### 5. Check TypeScript Types
 
@@ -170,6 +180,13 @@ npx tsc --noEmit
 ```
 
 ## Environment Variables
+
+### Client (`client/`)
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8080/api` | Backend API Base URL for native desktop/mobile apps |
+
+### Server (`server/`)
 
 | Variable | Default | Description |
 |---|---|---|
