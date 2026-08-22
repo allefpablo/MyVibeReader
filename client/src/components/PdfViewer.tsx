@@ -32,6 +32,8 @@ export function PdfViewer({
   const [rendering, setRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isProgrammaticScrollRef = useRef<boolean>(false);
+
   // Load PDF Document from Blob
   useEffect(() => {
     let isCancelled = false;
@@ -51,9 +53,6 @@ export function PdfViewer({
 
         const targetPage = Math.min(Math.max(1, initialPage), doc.numPages);
         setCurrentPage(targetPage);
-        if (onPageChange) {
-          onPageChange(targetPage, doc.numPages);
-        }
         setLoading(false);
       })
       .catch((err) => {
@@ -72,6 +71,7 @@ export function PdfViewer({
     if (pdfDoc && initialPage > 0 && initialPage !== currentPage) {
       const targetPage = Math.min(Math.max(1, initialPage), totalPages);
       setCurrentPage(targetPage);
+      hasRestoredScrollRef.current = false;
     }
   }, [initialPage, pdfDoc, totalPages]);
 
@@ -114,6 +114,7 @@ export function PdfViewer({
         if (!isCancelled) {
           setRendering(false);
           if (!hasRestoredScrollRef.current && initialScrollY > 0 && containerRef.current) {
+            isProgrammaticScrollRef.current = true;
             containerRef.current.scrollTop = initialScrollY;
             hasRestoredScrollRef.current = true;
           }
@@ -214,7 +215,15 @@ export function PdfViewer({
       {/* Canvas Rendering Container */}
       <div
         ref={containerRef}
-        onScroll={(e) => onScroll && onScroll(Math.round(e.currentTarget.scrollTop))}
+        onScroll={(e) => {
+          if (isProgrammaticScrollRef.current) {
+            isProgrammaticScrollRef.current = false;
+            return;
+          }
+          if (onScroll) {
+            onScroll(Math.round(e.currentTarget.scrollTop));
+          }
+        }}
         className="w-full flex justify-center bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 overflow-auto min-h-[500px] shadow-2xl relative"
       >
         {rendering && (

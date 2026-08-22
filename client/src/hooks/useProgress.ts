@@ -60,7 +60,7 @@ export function useProgress(bookId: string) {
     let isMounted = true;
     if (!bookId) return;
 
-    // Check if we already have local progress
+    // Check if we already have local progress for instant initial paint
     const local = getInitialProgress(bookId);
     if (local && isMounted) {
       setProgress(local);
@@ -73,20 +73,25 @@ export function useProgress(bookId: string) {
       .then((serverProgress) => {
         if (!isMounted) return;
 
-        // Compare timestamps if local exists
-        const localProg = getInitialProgress(bookId);
-        if (localProg?.updatedAt && serverProgress?.updatedAt) {
-          const localTime = new Date(localProg.updatedAt).getTime();
-          const serverTime = new Date(serverProgress.updatedAt).getTime();
-          if (localTime > serverTime) {
-            // Local is newer (e.g. created offline), keep local and sync to server
-            setProgress(localProg);
-            api.updateProgress(bookId, localProg.positionJson, localProg.deviceId).catch(() => {});
+        // Check if there is an un-synced offline update in the queue
+        if (syncService.hasQueuedUpdate(bookId)) {
+          const queued = syncService.getQueuedUpdate(bookId);
+          if (queued) {
+            const queuedProgress: ProgressDto = {
+              bookId: queued.bookId,
+              positionJson: queued.positionJson,
+              deviceId: queued.deviceId,
+              updatedAt: queued.updatedAt,
+            };
+            setProgress(queuedProgress);
+            saveToLocalStorage(queuedProgress);
+            api.updateProgress(bookId, queued.positionJson, queued.deviceId).catch(() => {});
             setLoading(false);
             return;
           }
         }
 
+        // Server progress is authoritative across devices
         setProgress(serverProgress);
         saveToLocalStorage(serverProgress);
         setError(null);

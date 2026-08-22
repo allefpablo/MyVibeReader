@@ -21,6 +21,16 @@ function saveQueue(queue: QueuedProgressUpdate[]): void {
 export const syncService = {
   getQueueLength: (): number => getQueue().length,
 
+  hasQueuedUpdate: (bookId: string): boolean => {
+    const queue = getQueue();
+    return queue.some((item) => item.bookId === bookId);
+  },
+
+  getQueuedUpdate: (bookId: string): QueuedProgressUpdate | undefined => {
+    const queue = getQueue();
+    return queue.find((item) => item.bookId === bookId);
+  },
+
   enqueueProgressUpdate: (update: QueuedProgressUpdate): void => {
     const queue = getQueue();
     // Replace any existing update for the same bookId to keep queue minimal

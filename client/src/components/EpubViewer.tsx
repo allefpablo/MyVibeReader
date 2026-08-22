@@ -17,10 +17,13 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
   const [error, setError] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<string>('');
 
+  const isInitialRenderRef = useRef<boolean>(true);
+
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setError(null);
+    isInitialRenderRef.current = true;
 
     blob
       .arrayBuffer()
@@ -74,6 +77,10 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
           const cfi = location?.start?.cfi;
           if (cfi) {
             setCurrentLocation(cfi);
+            if (isInitialRenderRef.current) {
+              isInitialRenderRef.current = false;
+              return;
+            }
             if (onLocationChange) {
               onLocationChange(cfi);
             }
@@ -97,6 +104,7 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
 
   useEffect(() => {
     if (renditionRef.current && initialCfi && initialCfi !== currentLocation) {
+      isInitialRenderRef.current = true;
       renditionRef.current.display(initialCfi).catch(() => {});
     }
   }, [initialCfi]);
