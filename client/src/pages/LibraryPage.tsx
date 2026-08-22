@@ -29,10 +29,11 @@ export default function LibraryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch Books
+  // Fetch Books with auto-refresh every 3s
   const { data: books = [], isLoading, isError, error } = useQuery<BookDto[]>({
     queryKey: ['books'],
     queryFn: api.getBooks,
+    refetchInterval: 3000,
   });
 
   // Upload Mutation
