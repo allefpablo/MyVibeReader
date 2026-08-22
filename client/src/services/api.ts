@@ -1,7 +1,7 @@
 // HTTP client pointing at the Spring Boot server.
 import { useAppStore } from '../store/appStore';
 
-const BASE_URL = '/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 export interface UserDto {
   id: string;
