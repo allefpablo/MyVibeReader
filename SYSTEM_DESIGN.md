@@ -8,7 +8,7 @@ This document provides a comprehensive technical design and architectural specif
 
 ```mermaid
 graph TB
-    subgraph Client Layer ["Client Architecture (Desktop & Mobile)"]
+    subgraph ClientLayer ["Client Architecture (Desktop & Mobile)"]
         UI["React 18 + UI Components<br/>(LoginPage, LibraryPage, ReaderPage)"]
         Store["Zustand App Store<br/>(Auth & Local Reader State)"]
         TauriStore["@tauri-apps/plugin-store<br/>(Persistent Disk Storage)"]
@@ -19,7 +19,7 @@ graph TB
         UI --> Store
         Store --> TauriStore
         UI --> SyncQueue
-        NetHook -->|Triggers flushQueue()| SyncQueue
+        NetHook -->|"Triggers flushQueue()"| SyncQueue
         UI --> NativeShell
     end
 
@@ -27,7 +27,7 @@ graph TB
         HTTPS["HTTPS / REST API<br/>(Authorization: Bearer JWT)"]
     end
 
-    subgraph Server Layer ["Backend Server (Spring Boot 3.4)"]
+    subgraph ServerLayer ["Backend Server (Spring Boot 3.4)"]
         Filter["JwtAuthFilter<br/>(Stateless Bearer Validation)"]
         AuthCtrl["AuthController<br/>(/api/auth/register, /login)"]
         BookCtrl["BookController<br/>(/api/books/**)"]
@@ -43,7 +43,7 @@ graph TB
         ProgCtrl --> ProgSvc
     end
 
-    subgraph Data & Storage ["Persistence Layer"]
+    subgraph DataStorage ["Persistence Layer"]
         PG[("PostgreSQL 16 DB<br/>(Users, Books, Progress)")]
         S3[("AWS S3 Bucket<br/>(Scoped Keys: {userId}/{bookId}.{ext})")]
     end
@@ -174,8 +174,50 @@ erDiagram
 
 ---
 
-## 5. Implementation Verification Status
+## 5. Production Deployment Architecture (DigitalOcean)
+
+```mermaid
+graph TB
+    subgraph Internet ["Public Internet"]
+        Clients["macOS / Android / Web Clients"]
+    end
+
+    subgraph Droplet ["DigitalOcean Basic Droplet ($4 - $6 / mo)"]
+        UFW["UFW Firewall (Ports 22, 80, 443)"]
+        Swap["2GB Swap File (OOM Protection)"]
+
+        subgraph Docker ["Docker Compose Network"]
+            Caddy["Caddy 2 Reverse Proxy<br/>(Auto SSL Let's Encrypt / ZeroSSL)"]
+            App["Spring Boot 3.4 API<br/>(Java 21 JRE, MaxRAM 65%)"]
+            DB[("PostgreSQL 16 Alpine<br/>(Named Volume: postgres_data)")]
+
+            Caddy -->|Reverse Proxy :8080| App
+            App -->|JDBC Internal Bridge| DB
+        end
+    end
+
+    subgraph Cloud ["External Cloud Storage"]
+        S3["AWS S3 / Cloudflare R2 / DO Spaces<br/>(Bucket: {userId}/{bookId}.ext)"]
+    end
+
+    subgraph CICD ["GitHub Actions CI/CD Pipeline"]
+        GHCR["GitHub Packages (GHCR)<br/>ghcr.io/allefpablo/myvibereader-server"]
+        Workflow["release.yml<br/>(Multi-platform build & SSH deploy)"]
+    end
+
+    Clients -->|HTTPS :443| UFW
+    UFW --> Caddy
+    App -->|S3 Client SDK| S3
+    Workflow -->|Build & Push Docker Image| GHCR
+    Workflow -->|SSH Atomic Deploy & Healthcheck| Droplet
+    Droplet -->|Pull Image| GHCR
+```
+
+---
+
+## 6. Implementation Verification Status
 
 All architectural components described in this document are **100% fully implemented**:
-* **Backend**: 51 automated unit and integration tests passing (`./mvnw test`).
+* **Backend**: 54 automated unit and integration tests passing (`./mvnw test`).
 * **Frontend**: TypeScript compilation clean (`npx tsc --noEmit`).
+* **DevOps**: Docker, Caddyfile, Droplet setup script, GHCR container publishing, and automated SSH zero-downtime deployment workflow ready.
