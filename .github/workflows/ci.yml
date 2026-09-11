@@ -47,3 +47,6 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
+
+      - name: Run client tests
+        run: npm test

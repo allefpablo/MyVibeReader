@@ -55,6 +55,9 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-u
 # Production build (desktop)
 npm run tauri build
 
+# Run unit tests
+npm test
+
 # Type check
 npx tsc --noEmit
 ```
@@ -128,11 +131,13 @@ No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 100MB.
 
 ## Releases & CI/CD
 
-All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APKs) are **fully automated via GitHub Actions** ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APKs) and **Automated Continuous Deployment to DigitalOcean** are **fully automated via GitHub Actions** ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
 - Triggered automatically on tag push (`git tag v1.0.0 && git push origin v1.0.0`) or manually via `gh workflow run release.yml -f tag_name=v1.0.0`.
 - Matrix builds the Spring Boot JAR, macOS DMG, and 16 KB page-aligned Android APKs on GitHub runners, then publishes the release with all attached binaries.
-- **Rule for future sessions:** Always use the automated GitHub Actions release pipeline for creating releases.
+- Builds and pushes the Docker container to GitHub Container Registry (`ghcr.io/<owner>/myvibereader-server:<tag>`).
+- Deploys the release to the DigitalOcean Droplet via SSH, verifying server health via `/actuator/health` before confirming.
+- **Rule for future sessions:** Always use the automated GitHub Actions release pipeline for creating releases and deploying.
 
 ## Testing
 
