@@ -17,13 +17,18 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class BookService {
+
+    private static final byte[] PDF_MAGIC = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D}; // %PDF-
+    private static final byte[] ZIP_MAGIC = new byte[]{0x50, 0x4B, 0x03, 0x04};       // PK\x03\x04
 
     private static final Map<String, Book.Format> ALLOWED_TYPES = Map.of(
             "application/pdf", Book.Format.PDF,
@@ -76,7 +81,14 @@ public class BookService {
         String s3Key = userId + "/" + s3KeyId + "." + ext;
         String title = stripExtension(file.getOriginalFilename());
 
-        try {
+        try (InputStream is = new BufferedInputStream(file.getInputStream())) {
+            is.mark(16);
+            byte[] header = new byte[16];
+            int bytesRead = is.read(header);
+            is.reset();
+
+            validateFileSignature(format, header, bytesRead);
+
             s3Client.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucketName)
@@ -84,7 +96,9 @@ public class BookService {
                             .contentType(contentType)
                             .contentLength(file.getSize())
                             .build(),
-                    RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+                    RequestBody.fromInputStream(is, file.getSize()));
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read uploaded file");
         }
@@ -149,5 +163,28 @@ public class BookService {
         if (filename == null || filename.isBlank()) return "Unknown";
         int dot = filename.lastIndexOf('.');
         return dot > 0 ? filename.substring(0, dot) : filename;
+    }
+
+    private void validateFileSignature(Book.Format format, byte[] header, int bytesRead) {
+        if (bytesRead < 4) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is too small to be a valid " + format);
+        }
+        if (format == Book.Format.PDF) {
+            if (bytesRead < 5 || !startsWith(header, PDF_MAGIC)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid PDF file signature");
+            }
+        } else if (format == Book.Format.EPUB) {
+            if (!startsWith(header, ZIP_MAGIC)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid EPUB file signature");
+            }
+        }
+    }
+
+    private static boolean startsWith(byte[] data, byte[] prefix) {
+        if (data == null || data.length < prefix.length) return false;
+        for (int i = 0; i < prefix.length; i++) {
+            if (data[i] != prefix[i]) return false;
+        }
+        return true;
     }
 }

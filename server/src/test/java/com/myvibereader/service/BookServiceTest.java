@@ -45,8 +45,9 @@ class BookServiceTest {
     void uploadBook_validPdf_savesBookAndUploadsToS3() throws Exception {
         bookService.setBucketName(BUCKET);
 
+        byte[] pdfBytes = "%PDF-1.4 test content".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         MockMultipartFile file = new MockMultipartFile(
-                "file", "my-book.pdf", "application/pdf", "pdf-content".getBytes());
+                "file", "my-book.pdf", "application/pdf", pdfBytes);
 
         Book saved = createBook("book-1", "my-book", Book.Format.PDF, "user-123/book-1.pdf");
         when(bookRepository.save(any(Book.class))).thenReturn(saved);
@@ -67,8 +68,9 @@ class BookServiceTest {
     void uploadBook_validEpub_savesBookAndUploadsToS3() throws Exception {
         bookService.setBucketName(BUCKET);
 
+        byte[] epubBytes = new byte[]{0x50, 0x4B, 0x03, 0x04, 0x0A, 0x00, 0x00, 0x00};
         MockMultipartFile file = new MockMultipartFile(
-                "file", "great-novel.epub", "application/epub+zip", "epub-content".getBytes());
+                "file", "great-novel.epub", "application/epub+zip", epubBytes);
 
         Book saved = createBook("book-2", "great-novel", Book.Format.EPUB, "user-123/book-2.epub");
         when(bookRepository.save(any(Book.class))).thenReturn(saved);
@@ -77,6 +79,36 @@ class BookServiceTest {
 
         assertThat(result.format()).isEqualTo("EPUB");
         verify(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
+    }
+
+    @Test
+    void uploadBook_spoofedPdfContentType_throwsBadRequest() {
+        bookService.setBucketName(BUCKET);
+
+        MockMultipartFile spoofedPdf = new MockMultipartFile(
+                "file", "malicious.pdf", "application/pdf", "not-a-real-pdf-file-content".getBytes());
+
+        assertThatThrownBy(() -> bookService.uploadBook(USER_ID, spoofedPdf))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+        verifyNoInteractions(s3Client);
+    }
+
+    @Test
+    void uploadBook_spoofedEpubContentType_throwsBadRequest() {
+        bookService.setBucketName(BUCKET);
+
+        MockMultipartFile spoofedEpub = new MockMultipartFile(
+                "file", "malicious.epub", "application/epub+zip", "<html><body>not a zip/epub</body></html>".getBytes());
+
+        assertThatThrownBy(() -> bookService.uploadBook(USER_ID, spoofedEpub))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+
+        verifyNoInteractions(s3Client);
     }
 
     @Test
