@@ -47,7 +47,7 @@ export const syncService = {
 
     for (const item of queue) {
       try {
-        await api.updateProgress(item.bookId, item.positionJson, item.deviceId);
+        await api.updateProgress(item.bookId, item.positionJson, item.deviceId, item.updatedAt);
       } catch (err) {
         console.warn(`Failed to flush progress for book ${item.bookId}:`, err);
         remainingQueue.push(item);

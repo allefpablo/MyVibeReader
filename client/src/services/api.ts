@@ -104,9 +104,14 @@ export const api = {
   getProgress: (bookId: string): Promise<ProgressDto> =>
     request<ProgressDto>(`/progress/${bookId}`),
 
-  updateProgress: (bookId: string, positionJson: string, deviceId?: string): Promise<ProgressDto> =>
+  updateProgress: (
+    bookId: string,
+    positionJson: string,
+    deviceId?: string,
+    updatedAt?: string
+  ): Promise<ProgressDto> =>
     request<ProgressDto>(`/progress/${bookId}`, {
       method: 'PUT',
-      body: JSON.stringify({ bookId, positionJson, deviceId }),
+      body: JSON.stringify({ bookId, positionJson, deviceId, updatedAt }),
     }),
 };

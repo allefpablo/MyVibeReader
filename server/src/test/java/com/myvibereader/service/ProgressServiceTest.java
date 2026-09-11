@@ -126,4 +126,35 @@ class ProgressServiceTest {
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
     }
+
+    @Test
+    void upsertProgress_staleTimestamp_doesNotOverwriteExistingProgress() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+        when(readingProgressRepository.findByUserIdAndBookId(userId, bookId)).thenReturn(Optional.of(progress));
+
+        // Existing progress is at page 10, updated at 'now'
+        Instant staleTime = progress.getUpdatedAt().minusSeconds(3600);
+        ProgressDto staleDto = new ProgressDto(bookId, "{\"page\": 2}", "dev-old", staleTime);
+
+        ProgressDto result = progressService.upsertProgress(userId, bookId, staleDto);
+
+        // Should return existing progress (page 10) and NOT save stale update
+        assertEquals("{\"page\": 10}", result.positionJson());
+        assertEquals("dev-1", result.deviceId());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_futureTimestamp_throws400BadRequest() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        Instant farFutureTime = Instant.now().plusSeconds(3600 * 24);
+        ProgressDto futureDto = new ProgressDto(bookId, "{\"page\": 50}", "dev-tampered", farFutureTime);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, futureDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
 }

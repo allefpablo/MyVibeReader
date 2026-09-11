@@ -10,10 +10,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 public class ProgressService {
+
+    private static final Duration MAX_FUTURE_SKEW = Duration.ofMinutes(5);
 
     private final ReadingProgressRepository readingProgressRepository;
     private final BookRepository bookRepository;
@@ -37,17 +41,32 @@ public class ProgressService {
         Book book = bookRepository.findByIdAndUserId(bookId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
 
-        ReadingProgress progress = readingProgressRepository.findByUserIdAndBookId(userId, bookId)
-                .orElseGet(() -> {
-                    ReadingProgress rp = new ReadingProgress();
-                    rp.setUser(userRepository.getReferenceById(userId));
-                    rp.setBook(book);
-                    return rp;
-                });
+        Instant now = Instant.now();
+        Instant incomingTimestamp = dto.updatedAt() != null ? dto.updatedAt() : now;
 
+        if (incomingTimestamp.isAfter(now.plus(MAX_FUTURE_SKEW))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Timestamp cannot be in the future");
+        }
+
+        Optional<ReadingProgress> existingOpt = readingProgressRepository.findByUserIdAndBookId(userId, bookId);
+        if (existingOpt.isPresent()) {
+            ReadingProgress existing = existingOpt.get();
+            if (existing.getUpdatedAt() != null && incomingTimestamp.isBefore(existing.getUpdatedAt())) {
+                return toDto(existing);
+            }
+
+            existing.setPositionJson(dto.positionJson());
+            existing.setDeviceId(dto.deviceId());
+            existing.setUpdatedAt(incomingTimestamp);
+            return toDto(readingProgressRepository.save(existing));
+        }
+
+        ReadingProgress progress = new ReadingProgress();
+        progress.setUser(userRepository.getReferenceById(userId));
+        progress.setBook(book);
         progress.setPositionJson(dto.positionJson());
         progress.setDeviceId(dto.deviceId());
-        progress.setUpdatedAt(dto.updatedAt() != null ? dto.updatedAt() : Instant.now());
+        progress.setUpdatedAt(incomingTimestamp);
 
         return toDto(readingProgressRepository.save(progress));
     }

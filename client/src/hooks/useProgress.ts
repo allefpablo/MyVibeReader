@@ -43,7 +43,7 @@ export function useProgress(bookId: string) {
     if (pending) {
       pendingUpdateRef.current = null;
       saveToLocalStorage(pending);
-      api.updateProgress(pending.bookId, pending.positionJson, pending.deviceId).catch((err) => {
+      api.updateProgress(pending.bookId, pending.positionJson, pending.deviceId, pending.updatedAt).catch((err) => {
         console.warn('Network sync failed on flush; queueing update.', err);
         syncService.enqueueProgressUpdate({
           bookId: pending.bookId,
@@ -85,7 +85,7 @@ export function useProgress(bookId: string) {
             };
             setProgress(queuedProgress);
             saveToLocalStorage(queuedProgress);
-            api.updateProgress(bookId, queued.positionJson, queued.deviceId).catch(() => {});
+            api.updateProgress(bookId, queued.positionJson, queued.deviceId, queued.updatedAt).catch(() => {});
             setLoading(false);
             return;
           }
@@ -138,7 +138,7 @@ export function useProgress(bookId: string) {
       pendingUpdateRef.current = null;
 
       try {
-        await api.updateProgress(bookId, positionJson, deviceId);
+        await api.updateProgress(bookId, positionJson, deviceId, now);
       } catch (err) {
         console.warn('Network sync failed; queueing update for reconnection flush.', err);
         syncService.enqueueProgressUpdate({
