@@ -29,3 +29,6 @@ app:
     region: ${AWS_REGION:us-east-1}
     access-key: ${AWS_ACCESS_KEY_ID}
     secret-key: ${AWS_SECRET_ACCESS_KEY}
+    endpoint: ${S3_ENDPOINT:}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}

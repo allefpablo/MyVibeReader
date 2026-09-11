@@ -109,4 +109,12 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().exists("Access-Control-Allow-Origin"));
     }
+
+    @Test
+    void cors_untrustedOrigin_isRejectedWithoutAllowOriginHeader() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/api/auth/login")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header("Origin", "https://malicious-attacker.com"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+    }
 }
