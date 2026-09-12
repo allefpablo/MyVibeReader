@@ -25,7 +25,7 @@ MyVibeReader/
 
 ### Client (`client/`)
 
-- **UI**: React 18 + TypeScript + Vite + Tailwind CSS v4 + Lucide React
+- **UI**: React 19 + TypeScript + Vite + Tailwind CSS v4 + Lucide React
 - **State / Data**: Zustand (local state) + TanStack Query (server state)
 - **Native shell**: Tauri v2 (Rust)
 - **Offline sync**: `@tauri-apps/plugin-store` persists reading positions locally; synced to server on reconnect
@@ -273,3 +273,15 @@ For a personal application with a single user uploading a small library, the ban
 | **PDF** | Position synced via page number + scroll offset |
 
 Max upload size: 30MB per file.
+ 
+## Security & Hardening
+
+MyVibeReader implements defense-in-depth across the full application stack:
+
+* **File Ingestion Security**: File uploads undergo non-destructive magic byte signature inspection (`%PDF-` and `PK\x03\x04`), rejecting disguised executable or HTML payloads regardless of declared MIME type.
+* **Denial of Service Prevention**: eBook downloads stream directly from AWS S3 via `ResponseInputStream` and `InputStreamResource` without buffering byte arrays in server memory. Maximum upload file size is strictly capped at 30MB across the servlet container, service layer, and client pre-flight checks.
+* **Input & Filename Sanitization**: Uploaded filenames are stripped of path traversal sequences (`../`, `C:\`), ASCII control characters, and Unicode Right-to-Left Override (RTLO) spoofing characters before saving display titles.
+* **Strict Webview Sandbox**: Tauri desktop and mobile webviews enforce a strict Content Security Policy (`default-src 'self'`, `object-src 'none'`). EPUB documents are rendered with `allowScriptedContent: false` and DOM-sanitized via content interception hooks that strip scripts, objects, embeds, iframes, inline `on*` event handlers, and `javascript:` URIs.
+* **Sync Engine Integrity**: Reading positions require valid JSON adhering to format schemas (PDF integer `page >= 1` & `scrollY >= 0`; EPUB non-blank `cfi`). Updates enforce Last-Write-Wins timestamps and reject future clocks skewed by more than 5 minutes.
+* **Auth Lifecycle & Session Eviction**: JWT tokens are structurally validated and checked for expiration on client boot. Any authenticated request returning HTTP 401/403 automatically purges persisted storage and evicts the session.
+* **Strict CORS Whitelisting**: CORS is restricted to trusted local development origins and Tauri application schemes (`tauri://localhost`, `https://tauri.localhost`, `http://tauri.localhost`).

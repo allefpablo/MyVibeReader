@@ -87,9 +87,10 @@ Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/
 
 - `pages/` — `LoginPage`, `LibraryPage` (polls every 3s via `refetchInterval`), `ReaderPage`
 - `hooks/` — `useProgress` (reads server state first, queues offline updates), `useOnlineStatus` (network detection, triggers sync flush)
-- `store/appStore.ts` — Zustand store: auth token, current user, active book
-- `services/api.ts` — HTTP client for the Spring Boot server (uses `import.meta.env.VITE_API_URL || 'http://localhost:8080/api'`)
+- `store/appStore.ts` — Zustand store: auth token, current user, active book (validates JWT expiration on init and setAuth)
+- `services/api.ts` — HTTP client for the Spring Boot server (auto-evicts session via `logout()` on 401/403)
 - `services/syncService.ts` — drains the offline position queue via `flushQueue()`
+- `utils/` — `jwt.ts` (JWT inspection, expiration check, base64url decoding), `sanitizeEpub.ts` (EPUB DOM sanitizer stripping scripts, event handlers, and dangerous URIs), `fileValidation.ts` (client 30MB pre-upload check)
 - `router.tsx` — React Router routes: `/` (login), `/library`, `/reader/:bookId`
 
 ### Cross-device & offline sync flow
@@ -98,7 +99,7 @@ Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/
 2. **Server Truth for Reading Progress:** When opening a book, `useProgress` treats `serverProgress` as authoritative unless un-synced offline updates exist in `syncService.getQueue()`.
 3. **Non-Destructive Initial Render:** Viewer components (`PdfViewer`, `EpubViewer`) do not fire progress updates during initial document load or programmatic scroll restoration.
 4. **Offline Queue:** If network fails during active reading, updates are queued in `syncService` and flushed automatically upon reconnection.
-5. Server uses `updatedAt` timestamp — last write wins.
+5. Server uses `updatedAt` timestamp — last write wins. Stale updates (`incoming < existing`) are ignored. Timestamps > 5 minutes in the future are rejected with HTTP 400.
 
 ### Android 16 KB Page Alignment (Android 15+)
 
@@ -118,7 +119,7 @@ No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 30MB.
 - EPUB: `{"cfi": "epubcfi(/6/4[chap01]!/4/2/2/1:0)"}`
 - PDF: `{"page": 42, "scrollY": 320}`
 
-## Key conventions
+## Key conventions & security rules
 
 - All endpoints under `/api/`; `/api/auth/**` and `/actuator/health` are unauthenticated
 - Config lives in `application.yml` (+ `application-{dev,docker}.yml`), not `.properties`. App-specific settings are namespaced under `app.jwt.*` and `app.s3.*`
@@ -128,6 +129,15 @@ No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 30MB.
 - CSS utilities: combine with `clsx` + `tailwind-merge` (use a `cn()` helper)
 - TanStack Query for all server state; Zustand only for client-only state
 - TDD: always write tests before implementing a feature or endpoint
+- **Security & Ingestion Rules:**
+  - **Magic Byte Inspection:** Validate file headers (`%PDF-`, `PK\x03\x04`) on upload; MIME alone is untrusted.
+  - **Streaming Downloads:** Stream S3 objects directly via `ResponseInputStream` / `InputStreamResource` without buffering byte arrays in memory.
+  - **30MB Upload Limit:** Enforced at servlet container, service layer (`MAX_FILE_SIZE_BYTES`), and client pre-flight. Returns HTTP 413.
+  - **Filename Sanitization:** Strip directory traversals (`/`, `\`), control characters, and Unicode RTLO/bidi formatters. Default to `"Untitled"`.
+  - **CORS Whitelist:** Never use wildcard `*`; whitelist explicit dev ports and Tauri app origins (`tauri://localhost`, `https://tauri.localhost`, `http://tauri.localhost`).
+  - **Payload Schema Validation:** Validate `positionJson` constraints (`@NotBlank @Size(max = 2000)`) and reject schema mismatches.
+  - **Strict CSP & EPUB Sanitization:** Enforce strict Tauri CSP (`default-src 'self'`, `object-src 'none'`), set `allowScriptedContent: false` in `EpubViewer`, and strip scripts/inline event handlers/`javascript:` links via `sanitizeEpubDocument`.
+  - **Auth Session Lifecycle:** Inspect JWT expiration on client boot; auto-evict session on 401/403.
 
 ## Releases & CI/CD
 
@@ -141,4 +151,6 @@ All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APK
 
 ## Testing
 
-Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`). CI (`.github/workflows/ci.yml`) runs `mvn test` (server) and `tsc --noEmit` (client) on PRs to `main`.
+- **Backend (75 tests):** Run with `cd server && mvn test`. Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`).
+- **Frontend (28 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
+- **CI Pipeline:** (`.github/workflows/ci.yml`) runs `mvn test` (server) and `tsc --noEmit` (client) on PRs to `main`.

@@ -219,6 +219,44 @@ All endpoints listed below are **100% fully implemented and verified**:
   * Metadata purged from PostgreSQL database.
   * S3 object `{userId}/{s3KeyId}.pdf` deleted from cloud storage.
 
+#### Test Case 2.5: Upload File Exceeding 30MB Limit
+* **Steps**:
+  1. Attempt to upload an ebook file larger than 30MB:
+     ```bash
+     curl -i -X POST http://localhost:8080/api/books/upload \
+       -H "Authorization: Bearer $TOKEN" \
+       -F "file=@oversized-31mb.pdf;type=application/pdf"
+     ```
+* **Expected Result**:
+  * Status code: `413 Payload Too Large`.
+  * Response message: `File size exceeds the 30MB limit`.
+  * In the UI (`LibraryPage.tsx`), selecting a >30MB file triggers immediate error banner without sending network request.
+
+#### Test Case 2.6: Upload Spoofed MIME File (Magic Byte Verification)
+* **Steps**:
+  1. Attempt to upload a text or executable file renamed to `.pdf`:
+     ```bash
+     echo "plain text not a pdf" > spoofed.pdf
+     curl -i -X POST http://localhost:8080/api/books/upload \
+       -H "Authorization: Bearer $TOKEN" \
+       -F "file=@spoofed.pdf;type=application/pdf"
+     ```
+* **Expected Result**:
+  * Status code: `400 Bad Request`.
+  * Response message: `Invalid PDF file signature`.
+
+#### Test Case 2.7: Filename Path Traversal & Control Character Sanitization
+* **Steps**:
+  1. Upload a file named `../../../../etc/shadow.pdf`:
+     ```bash
+     curl -i -X POST http://localhost:8080/api/books/upload \
+       -H "Authorization: Bearer $TOKEN" \
+       -F "file=@sample.pdf;filename=../../../../etc/shadow.pdf;type=application/pdf"
+     ```
+* **Expected Result**:
+  * Status code: `201 Created`.
+  * `title` in response is sanitized to `"shadow"` (path separators and traversals stripped).
+
 ---
 
 ### Test Suite 3: Reading Progress API & Multi-Device Sync
@@ -246,6 +284,23 @@ All endpoints listed below are **100% fully implemented and verified**:
 * **Expected Result**:
   * Status code: `200 OK`.
   * Returns latest position JSON matching saved state.
+
+#### Test Case 3.3: Reading Progress Schema Validation & Future Clock Rejection
+* **Steps**:
+  1. Send invalid JSON:
+     ```bash
+     curl -i -X PUT "http://localhost:8080/api/progress/$BOOK_ID" \
+       -H "Authorization: Bearer $TOKEN" \
+       -H "Content-Type: application/json" \
+       -d "{\"bookId\":\"$BOOK_ID\",\"positionJson\":\"not-json\",\"deviceId\":\"dev-1\"}"
+     ```
+     $\rightarrow$ Expected: `400 Bad Request`.
+  2. Send negative PDF page `{"page": -5}`:
+     $\rightarrow$ Expected: `400 Bad Request`.
+  3. Send timestamp > 5 minutes in the future:
+     $\rightarrow$ Expected: `400 Bad Request` (`Timestamp cannot be in the future`).
+  4. Send stale update older than stored `updatedAt`:
+     $\rightarrow$ Expected: `200 OK`, existing progress returned without overwriting.
 
 ---
 
@@ -297,3 +352,17 @@ All endpoints listed below are **100% fully implemented and verified**:
      ```
   2. Verify `Align` value on all `LOAD` segments is `0x4000` (16 KB) or `0x10000` (64 KB).
   3. Launch app on an Android 15 / 16 KB page-size kernel device $\rightarrow$ verify no ELF alignment or 16 KB compatibility warnings appear.
+
+#### Test Case 4.6: Client Session Security & Expired Token Auto-Eviction
+* **Steps**:
+  1. Manually insert an expired JWT or malformed string into `localStorage` under key `myvibereader_token`.
+  2. Refresh the application $\rightarrow$ verify app clears `localStorage` and stays on `/` (login page) rather than navigating to `/library`.
+  3. Log in with valid credentials, then invalidate the token on server (or let it expire).
+  4. Perform any authenticated operation (e.g. view books or save progress) $\rightarrow$ verify receipt of 401/403 triggers immediate `logout()`, clears storage, and redirects to `/`.
+
+#### Test Case 4.7: EPUB Reader DOM Sanitization & Script Neutralization
+* **Steps**:
+  1. Upload an EPUB ebook containing `<script>` tags, inline event handlers (e.g. `<img onerror=...>` or `<body onload=...>`), and `<a href="javascript:...">` links.
+  2. Open the book in `/reader/:bookId`.
+  3. Inspect the rendered DOM inside the reader iframe using browser/webview DevTools.
+  4. Verify all `<script>` elements and inline event handlers are completely removed, links have `rel="noopener noreferrer"`, and `javascript:` URIs are neutralized.
