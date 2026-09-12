@@ -3,6 +3,7 @@ package com.myvibereader.controller;
 import com.myvibereader.config.JwtAuthFilter;
 import com.myvibereader.config.JwtUtil;
 import com.myvibereader.config.SecurityConfig;
+import com.myvibereader.dto.BookDownload;
 import com.myvibereader.dto.BookDto;
 import com.myvibereader.service.BookService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -102,13 +105,17 @@ class BookControllerTest {
     @Test
     void downloadBook_authenticatedUser_returns200() throws Exception {
         String token = jwtUtil.generateToken("user-123");
-        when(bookService.downloadBook("user-123", "book-1")).thenReturn("sample bytes".getBytes());
+        ByteArrayInputStream stream = new ByteArrayInputStream("sample bytes".getBytes(StandardCharsets.UTF_8));
+        BookDownload download = new BookDownload(stream, "application/pdf", 12L, "book-book-1.pdf");
+        when(bookService.downloadBook("user-123", "book-1")).thenReturn(download);
 
         mockMvc.perform(get("/api/books/book-1/download")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", "attachment; filename=\"book-book-1\""))
-                .andExpect(content().bytes("sample bytes".getBytes()));
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"book-book-1.pdf\""))
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().longValue("Content-Length", 12L))
+                .andExpect(content().bytes("sample bytes".getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test

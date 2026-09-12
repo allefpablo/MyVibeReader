@@ -1,5 +1,6 @@
 package com.myvibereader.service;
 
+import com.myvibereader.dto.BookDownload;
 import com.myvibereader.dto.BookDto;
 import com.myvibereader.model.Book;
 import com.myvibereader.repository.BookRepository;
@@ -13,14 +14,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -162,18 +166,27 @@ class BookServiceTest {
     }
 
     @Test
-    void downloadBook_existingBook_returnsBytes() {
+    void downloadBook_existingBook_returnsStreamedBookDownload() throws Exception {
         bookService.setBucketName(BUCKET);
         Book book = createBook("b1", "Book One", Book.Format.PDF, "user-123/b1.pdf");
         when(bookRepository.findByIdAndUserId("b1", USER_ID)).thenReturn(Optional.of(book));
 
-        ResponseBytes<GetObjectResponse> responseBytes = ResponseBytes.fromByteArray(
-                GetObjectResponse.builder().build(), "test content".getBytes());
-        when(s3Client.getObjectAsBytes(any(GetObjectRequest.class))).thenReturn(responseBytes);
+        GetObjectResponse getResponse = GetObjectResponse.builder()
+                .contentLength(12L)
+                .contentType("application/pdf")
+                .build();
+        ResponseInputStream<GetObjectResponse> responseStream = new ResponseInputStream<>(
+                getResponse,
+                AbortableInputStream.create(new ByteArrayInputStream("test content".getBytes(StandardCharsets.UTF_8)))
+        );
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(responseStream);
 
-        byte[] result = bookService.downloadBook(USER_ID, "b1");
+        BookDownload result = bookService.downloadBook(USER_ID, "b1");
 
-        assertThat(result).isEqualTo("test content".getBytes());
+        assertThat(result.contentType()).isEqualTo("application/pdf");
+        assertThat(result.contentLength()).isEqualTo(12L);
+        assertThat(result.filename()).isEqualTo("book-b1.pdf");
+        assertThat(result.inputStream().readAllBytes()).isEqualTo("test content".getBytes(StandardCharsets.UTF_8));
     }
 
     @Test

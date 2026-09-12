@@ -1,5 +1,6 @@
 package com.myvibereader.service;
 
+import com.myvibereader.dto.BookDownload;
 import com.myvibereader.dto.BookDto;
 import com.myvibereader.model.Book;
 import com.myvibereader.repository.BookRepository;
@@ -9,7 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -112,18 +113,27 @@ public class BookService {
         return toDto(bookRepository.save(book));
     }
 
-    public byte[] downloadBook(String userId, String bookId) {
+    public BookDownload downloadBook(String userId, String bookId) {
         Book book = bookRepository.findByIdAndUserId(bookId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
 
         try {
-            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(
+            ResponseInputStream<GetObjectResponse> stream = s3Client.getObject(
                     GetObjectRequest.builder()
                             .bucket(bucketName)
                             .key(book.getStoragePath())
                             .build()
             );
-            return objectBytes.asByteArray();
+
+            String ext = FORMAT_EXTENSION.get(book.getFormat());
+            String filename = "book-" + book.getId() + (ext != null ? "." + ext : "");
+            String contentType = stream.response().contentType();
+            if (contentType == null || contentType.isBlank()) {
+                contentType = book.getFormat() == Book.Format.PDF ? "application/pdf" : "application/epub+zip";
+            }
+            long contentLength = stream.response().contentLength() != null ? stream.response().contentLength() : 0L;
+
+            return new BookDownload(stream, contentType, contentLength, filename);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
