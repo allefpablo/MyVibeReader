@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ePub, { Book, Rendition } from 'epubjs';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
+import { sanitizeEpubDocument } from '../utils/sanitizeEpub';
 
 interface EpubViewerProps {
   blob: Blob;
@@ -41,6 +42,14 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
           width: '100%',
           height: '100%',
           spread: 'auto',
+          allowScriptedContent: false,
+        });
+
+        // Sanitize EPUB XHTML DOM before display to prevent script execution, XSS, and dangerous URLs
+        rendition.hooks.content.register((contents: any) => {
+          if (contents && contents.document) {
+            sanitizeEpubDocument(contents.document);
+          }
         });
 
         // Enforce crisp white background and clear readable dark text for EPUB content
