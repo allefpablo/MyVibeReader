@@ -112,7 +112,7 @@ All endpoints listed below are **100% fully implemented and verified**:
 | `GET` | `/actuator/health` | No | ✅ Fully Implemented | None | `200 OK` `{"status": "UP"}` |
 | `GET` | `/api/sync` | No | ✅ Fully Implemented | None | `200 OK` `{"status":"UP", "service":"MyVibeReader Sync Service", "timestamp":"..."}` |
 | `GET` | `/api/books` | Yes | ✅ Fully Implemented | Header: `Authorization: Bearer <token>` | `200 OK` array of `BookDto` objects |
-| `POST` | `/api/books/upload` | Yes | ✅ Fully Implemented | Multipart Form: `file` (PDF/EPUB, max 100MB) | `201 Created` with `BookDto` metadata |
+| `POST` | `/api/books/upload` | Yes | ✅ Fully Implemented | Multipart Form: `file` (PDF/EPUB, max 30MB) | `201 Created` with `BookDto` metadata |
 | `GET` | `/api/books/{id}/download` | Yes | ✅ Fully Implemented | Path: `id` (Book UUID) | `200 OK` binary file stream from S3 |
 | `DELETE`| `/api/books/{id}` | Yes | ✅ Fully Implemented | Path: `id` (Book UUID) | `204 No Content` (S3 object + DB metadata purged) |
 | `GET` | `/api/progress/{bookId}` | Yes | ✅ Fully Implemented | Path: `bookId` | `200 OK` with `ProgressDto` position JSON |

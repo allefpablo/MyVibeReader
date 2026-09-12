@@ -179,18 +179,41 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-u
 npx tsc --noEmit
 ```
 
-### 6. Automated Releases (GitHub Actions)
+### 6. Production Deployment to DigitalOcean ($4 - $6/month)
 
-Releases are fully automated via GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)). To trigger a multi-platform release with Server, macOS, and Android artifacts:
+Deploy the entire backend stack (Spring Boot 3.4 + PostgreSQL 16 + Caddy with automated HTTPS) on a single budget DigitalOcean Droplet:
 
 ```bash
-# Push a version tag to automatically build and publish release
+# 1. Create a $4/mo (512MB RAM) or $6/mo (1GB RAM) Ubuntu Droplet on DigitalOcean.
+# 2. SSH into your Droplet and run the automated setup script:
+curl -fsSL https://raw.githubusercontent.com/allefpablo/MyVibeReader/main/deploy/setup-droplet.sh | sudo bash
+
+# 3. Configure production secrets:
+sudo cp /opt/myvibereader/.env.prod.example /opt/myvibereader/.env
+sudo nano /opt/myvibereader/.env   # Set DOMAIN, JWT_SECRET, S3 credentials, etc.
+
+# 4. Start the stack:
+sudo docker compose -f /opt/myvibereader/docker-compose.prod.yml up -d
+```
+
+### 7. Automated Releases & Continuous Deployment (GitHub Actions)
+
+Releases and DigitalOcean server deployments are **fully automated** via GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+
+1. Tag push triggers automated multi-platform compilation (Spring Boot JAR, macOS DMG, Android APKs, and Docker image pushed to GitHub Container Registry `ghcr.io`).
+2. The `deploy-digitalocean` job automatically connects to your Droplet via SSH, pulls the new image tag, performs an atomic rolling update, and validates server health (`/actuator/health`).
+
+```bash
+# Push a version tag to build, release, and deploy:
 git tag v1.0.0
 git push origin v1.0.0
-
-# Or trigger via GitHub CLI
-gh workflow run release.yml -f tag_name=v1.0.0
 ```
+
+#### Required GitHub Secrets for Automated Deployment:
+- `DO_HOST`: Droplet IP address or hostname
+- `DO_USER`: `root` or deploy user
+- `DO_SSH_KEY`: Private SSH key authorized on the Droplet (`cat ~/.ssh/id_rsa`)
+- `DO_PORT`: SSH Port (default: `22`)
 
 ## Environment Variables
 
@@ -249,4 +272,4 @@ For a personal application with a single user uploading a small library, the ban
 | **EPUB** | Position synced via EPUB Canonical Fragment Identifier (CFI) |
 | **PDF** | Position synced via page number + scroll offset |
 
-Max upload size: 100MB per file.
+Max upload size: 30MB per file.

@@ -293,6 +293,27 @@ class BookServiceTest {
         assertThat(result.title()).isEqualTo("a".repeat(255));
     }
 
+    @Test
+    void uploadBook_fileExceeds30Mb_throwsPayloadTooLarge() {
+        bookService.setBucketName(BUCKET);
+        long oversized = 30 * 1024 * 1024L + 1L;
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "large.pdf", "application/pdf", new byte[10]) {
+            @Override
+            public long getSize() {
+                return oversized;
+            }
+        };
+
+        assertThatThrownBy(() -> bookService.uploadBook(USER_ID, file))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+
+        verifyNoInteractions(s3Client);
+    }
+
     private Book createBook(String id, String title, Book.Format format, String storagePath) {
         Book book = new Book();
         book.setId(id);

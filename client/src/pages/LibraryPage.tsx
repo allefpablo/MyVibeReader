@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { api, BookDto } from '../services/api';
 import { fileCacheService } from '../services/fileCacheService';
+import { validateEbookFile } from '../utils/fileValidation';
 import {
   BookOpen,
   UploadCloud,
@@ -62,17 +63,9 @@ export default function LibraryPage() {
     if (!files || files.length === 0) return;
     const file = files[0];
 
-    const validTypes = ['application/pdf', 'application/epub+zip'];
-    const validExtensions = ['.pdf', '.epub'];
-    const hasValidExt = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
-
-    if (!validTypes.includes(file.type) && !hasValidExt) {
-      setUploadError('Invalid file format. Only PDF and EPUB files are supported.');
-      return;
-    }
-
-    if (file.size > 100 * 1024 * 1024) {
-      setUploadError('File size exceeds the 100MB limit.');
+    const validation = validateEbookFile(file);
+    if (!validation.valid) {
+      setUploadError(validation.error || 'Invalid file');
       return;
     }
 
@@ -193,7 +186,7 @@ export default function LibraryPage() {
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
                   Supports <span className="text-indigo-300 font-semibold">PDF</span> and{' '}
-                  <span className="text-emerald-300 font-semibold">EPUB</span> up to 100MB
+                  <span className="text-emerald-300 font-semibold">EPUB</span> up to 30MB
                 </p>
               </div>
             </div>

@@ -111,7 +111,7 @@ Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/
 | EPUB | `EPUB` | Position tracked via EPUB CFI |
 | PDF | `PDF` | Position tracked via page + scroll offset |
 
-No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 100MB.
+No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 30MB.
 
 ### Reading position format (`positionJson` column / `ProgressDto`)
 

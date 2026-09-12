@@ -29,6 +29,7 @@ import java.util.regex.Pattern;
 @Service
 public class BookService {
 
+    public static final long MAX_FILE_SIZE_BYTES = 30 * 1024 * 1024L; // 30 MB
     private static final int MAX_TITLE_LENGTH = 255;
     private static final String DEFAULT_TITLE = "Untitled";
     private static final Pattern DISALLOWED_CHARS = Pattern.compile("[\\p{Cntrl}\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]");
@@ -73,6 +74,10 @@ public class BookService {
     public BookDto uploadBook(String userId, MultipartFile file) {
         if (file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File must not be empty");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "File size exceeds the 30MB limit");
         }
 
         String contentType = file.getContentType();
