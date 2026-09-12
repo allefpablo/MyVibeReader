@@ -25,10 +25,10 @@ app:
     secret: ${JWT_SECRET:change-me-in-production-use-a-256-bit-secret}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}  # 24 hours
   s3:
-    bucket: ${S3_BUCKET_NAME}
+    bucket: ${S3_BUCKET_NAME:}
     region: ${AWS_REGION:us-east-1}
-    access-key: ${AWS_ACCESS_KEY_ID}
-    secret-key: ${AWS_SECRET_ACCESS_KEY}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
     endpoint: ${S3_ENDPOINT:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:}
