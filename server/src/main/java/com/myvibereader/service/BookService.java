@@ -24,9 +24,14 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 public class BookService {
+
+    private static final int MAX_TITLE_LENGTH = 255;
+    private static final String DEFAULT_TITLE = "Untitled";
+    private static final Pattern DISALLOWED_CHARS = Pattern.compile("[\\p{Cntrl}\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]");
 
     private static final byte[] PDF_MAGIC = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D}; // %PDF-
     private static final byte[] ZIP_MAGIC = new byte[]{0x50, 0x4B, 0x03, 0x04};       // PK\x03\x04
@@ -80,7 +85,7 @@ public class BookService {
         String s3KeyId = UUID.randomUUID().toString();
         String ext = FORMAT_EXTENSION.get(format);
         String s3Key = userId + "/" + s3KeyId + "." + ext;
-        String title = stripExtension(file.getOriginalFilename());
+        String title = sanitizeTitle(file.getOriginalFilename());
 
         try (InputStream is = new BufferedInputStream(file.getInputStream())) {
             is.mark(16);
@@ -169,10 +174,38 @@ public class BookService {
         );
     }
 
-    private String stripExtension(String filename) {
-        if (filename == null || filename.isBlank()) return "Unknown";
-        int dot = filename.lastIndexOf('.');
-        return dot > 0 ? filename.substring(0, dot) : filename;
+    String sanitizeTitle(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return DEFAULT_TITLE;
+        }
+
+        // 1. Extract basename: normalize backslashes to forward slashes and take the last segment
+        String basename = filename.replace('\\', '/');
+        int lastSlash = basename.lastIndexOf('/');
+        if (lastSlash >= 0) {
+            basename = basename.substring(lastSlash + 1);
+        }
+
+        // 2. Strip extension
+        int lastDot = basename.lastIndexOf('.');
+        if (lastDot > 0) {
+            basename = basename.substring(0, lastDot);
+        } else if (lastDot == 0) {
+            basename = "";
+        }
+
+        // 3. Remove control chars and bidirectional override/formatting characters
+        basename = DISALLOWED_CHARS.matcher(basename).replaceAll(" ");
+
+        // 4. Normalize whitespace (collapse multiple spaces, trim)
+        basename = basename.trim().replaceAll("\\s+", " ");
+
+        // 5. Truncate to MAX_TITLE_LENGTH
+        if (basename.length() > MAX_TITLE_LENGTH) {
+            basename = basename.substring(0, MAX_TITLE_LENGTH).trim();
+        }
+
+        return basename.isBlank() ? DEFAULT_TITLE : basename;
     }
 
     private void validateFileSignature(Book.Format format, byte[] header, int bytesRead) {

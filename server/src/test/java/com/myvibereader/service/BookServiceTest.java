@@ -221,6 +221,78 @@ class BookServiceTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void uploadBook_pathTraversalFilename_stripsDirectoryTraversals() {
+        bookService.setBucketName(BUCKET);
+        byte[] pdfBytes = "%PDF-1.4 test content".getBytes();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "../../../../etc/shadow.pdf", "application/pdf", pdfBytes);
+
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookDto result = bookService.uploadBook(USER_ID, file);
+
+        assertThat(result.title()).isEqualTo("shadow");
+    }
+
+    @Test
+    void uploadBook_windowsPathFilename_stripsWindowsDriveAndPath() {
+        bookService.setBucketName(BUCKET);
+        byte[] pdfBytes = "%PDF-1.4 test content".getBytes();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "C:\\\\Users\\\\Victim\\\\Documents\\\\Confidential.pdf", "application/pdf", pdfBytes);
+
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookDto result = bookService.uploadBook(USER_ID, file);
+
+        assertThat(result.title()).isEqualTo("Confidential");
+    }
+
+    @Test
+    void uploadBook_controlCharactersAndRtlo_stripsMaliciousCharacters() {
+        bookService.setBucketName(BUCKET);
+        byte[] pdfBytes = "%PDF-1.4 test content".getBytes();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "hello\r\n\t\u0000world\u202Ereversed\u202C.pdf", "application/pdf", pdfBytes);
+
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookDto result = bookService.uploadBook(USER_ID, file);
+
+        assertThat(result.title()).isEqualTo("hello world reversed");
+    }
+
+    @Test
+    void uploadBook_blankFilenameOrExtensionOnly_fallsBackToUntitled() {
+        bookService.setBucketName(BUCKET);
+        byte[] pdfBytes = "%PDF-1.4 test content".getBytes();
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "   .pdf", "application/pdf", pdfBytes);
+
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookDto result = bookService.uploadBook(USER_ID, file);
+
+        assertThat(result.title()).isEqualTo("Untitled");
+    }
+
+    @Test
+    void uploadBook_excessivelyLongFilename_truncatesTo255Chars() {
+        bookService.setBucketName(BUCKET);
+        byte[] pdfBytes = "%PDF-1.4 test content".getBytes();
+        String longName = "a".repeat(300) + ".pdf";
+        MockMultipartFile file = new MockMultipartFile(
+                "file", longName, "application/pdf", pdfBytes);
+
+        when(bookRepository.save(any(Book.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookDto result = bookService.uploadBook(USER_ID, file);
+
+        assertThat(result.title()).hasSize(255);
+        assertThat(result.title()).isEqualTo("a".repeat(255));
+    }
+
     private Book createBook(String id, String title, Book.Format format, String storagePath) {
         Book book = new Book();
         book.setId(id);
