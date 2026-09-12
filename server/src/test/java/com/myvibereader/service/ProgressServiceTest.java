@@ -7,11 +7,13 @@ import com.myvibereader.model.User;
 import com.myvibereader.repository.BookRepository;
 import com.myvibereader.repository.ReadingProgressRepository;
 import com.myvibereader.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -35,6 +37,9 @@ class ProgressServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
+
     @InjectMocks
     private ProgressService progressService;
 
@@ -53,6 +58,7 @@ class ProgressServiceTest {
         book = new Book();
         book.setId(bookId);
         book.setUser(user);
+        book.setFormat(Book.Format.PDF);
 
         progress = new ReadingProgress();
         progress.setUser(user);
@@ -156,5 +162,114 @@ class ProgressServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
         verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_malformedJson_throws400BadRequest() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "not-json{", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_jsonNotObject_throws400BadRequest() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "[\"an\", \"array\"]", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_pdfInvalidPage_throws400BadRequest() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "{\"page\": -1}", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_pdfMissingPage_throws400BadRequest() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "{\"scrollY\": 100}", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_pdfInvalidScrollY_throws400BadRequest() {
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "{\"page\": 1, \"scrollY\": -50}", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_epubMissingCfi_throws400BadRequest() {
+        book.setFormat(Book.Format.EPUB);
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "{\"page\": 1}", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_epubBlankCfi_throws400BadRequest() {
+        book.setFormat(Book.Format.EPUB);
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+
+        ProgressDto invalidDto = new ProgressDto(bookId, "{\"cfi\": \"   \"}", "dev-1", Instant.now());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> progressService.upsertProgress(userId, bookId, invalidDto));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        verify(readingProgressRepository, never()).save(any(ReadingProgress.class));
+    }
+
+    @Test
+    void upsertProgress_epubValidCfi_success() {
+        book.setFormat(Book.Format.EPUB);
+        when(bookRepository.findByIdAndUserId(bookId, userId)).thenReturn(Optional.of(book));
+        when(readingProgressRepository.findByUserIdAndBookId(userId, bookId)).thenReturn(Optional.of(progress));
+        when(readingProgressRepository.save(any(ReadingProgress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProgressDto validDto = new ProgressDto(bookId, "{\"cfi\": \"epubcfi(/6/4[chap01]!/4/2/2/1:0)\"}", "dev-1", Instant.now());
+
+        ProgressDto result = progressService.upsertProgress(userId, bookId, validDto);
+
+        assertNotNull(result);
+        assertEquals("{\"cfi\": \"epubcfi(/6/4[chap01]!/4/2/2/1:0)\"}", result.positionJson());
+        verify(readingProgressRepository).save(progress);
     }
 }

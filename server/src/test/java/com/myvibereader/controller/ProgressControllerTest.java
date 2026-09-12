@@ -83,4 +83,27 @@ class ProgressControllerTest {
                 .andExpect(jsonPath("$.bookId").value("book-123"))
                 .andExpect(jsonPath("$.positionJson").value("{\"page\": 42}"));
     }
+
+    @Test
+    void updateProgress_blankPositionJson_returns400() throws Exception {
+        String token = jwtUtil.generateToken("user-123");
+
+        mockMvc.perform(put("/api/progress/book-123")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bookId\":\"book-123\",\"positionJson\":\"\",\"deviceId\":\"dev-1\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateProgress_oversizedPositionJson_returns400() throws Exception {
+        String token = jwtUtil.generateToken("user-123");
+        String oversized = "a".repeat(2001);
+
+        mockMvc.perform(put("/api/progress/book-123")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bookId\":\"book-123\",\"positionJson\":\"" + oversized + "\",\"deviceId\":\"dev-1\"}"))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -2,6 +2,7 @@ package com.myvibereader.controller;
 
 import com.myvibereader.dto.ProgressDto;
 import com.myvibereader.service.ProgressService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +28,7 @@ public class ProgressController {
     public ResponseEntity<ProgressDto> updateProgress(
             @AuthenticationPrincipal String userId,
             @PathVariable String bookId,
-            @RequestBody ProgressDto dto) {
+            @Valid @RequestBody ProgressDto dto) {
         return ResponseEntity.ok(progressService.upsertProgress(userId, bookId, dto));
     }
 }

@@ -1,5 +1,7 @@
 package com.myvibereader.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myvibereader.dto.ProgressDto;
 import com.myvibereader.model.Book;
 import com.myvibereader.model.ReadingProgress;
@@ -22,13 +24,16 @@ public class ProgressService {
     private final ReadingProgressRepository readingProgressRepository;
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
     public ProgressService(ReadingProgressRepository readingProgressRepository,
                            BookRepository bookRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           ObjectMapper objectMapper) {
         this.readingProgressRepository = readingProgressRepository;
         this.bookRepository = bookRepository;
         this.userRepository = userRepository;
+        this.objectMapper = objectMapper;
     }
 
     public ProgressDto getProgress(String userId, String bookId) {
@@ -40,6 +45,8 @@ public class ProgressService {
     public ProgressDto upsertProgress(String userId, String bookId, ProgressDto dto) {
         Book book = bookRepository.findByIdAndUserId(bookId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found"));
+
+        validatePositionJson(dto.positionJson(), book.getFormat());
 
         Instant now = Instant.now();
         Instant incomingTimestamp = dto.updatedAt() != null ? dto.updatedAt() : now;
@@ -69,6 +76,44 @@ public class ProgressService {
         progress.setUpdatedAt(incomingTimestamp);
 
         return toDto(readingProgressRepository.save(progress));
+    }
+
+    private void validatePositionJson(String positionJson, Book.Format format) {
+        if (positionJson == null || positionJson.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "positionJson must not be blank");
+        }
+        if (positionJson.length() > 2000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "positionJson must not exceed 2000 characters");
+        }
+
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(positionJson);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "positionJson is not valid JSON");
+        }
+
+        if (root == null || !root.isObject()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "positionJson must be a JSON object");
+        }
+
+        if (format == Book.Format.PDF) {
+            JsonNode pageNode = root.get("page");
+            if (pageNode == null || !pageNode.canConvertToInt() || pageNode.asInt() < 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PDF positionJson must contain integer 'page' >= 1");
+            }
+            if (root.has("scrollY")) {
+                JsonNode scrollYNode = root.get("scrollY");
+                if (!scrollYNode.isNumber() || scrollYNode.asDouble() < 0) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PDF scrollY must be a non-negative number");
+                }
+            }
+        } else if (format == Book.Format.EPUB) {
+            JsonNode cfiNode = root.get("cfi");
+            if (cfiNode == null || !cfiNode.isTextual() || cfiNode.asText().trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EPUB positionJson must contain non-blank string 'cfi'");
+            }
+        }
     }
 
     private ProgressDto toDto(ReadingProgress progress) {
