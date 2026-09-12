@@ -1,9 +1,11 @@
+import '../utils/polyfills';
 import { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Supply worker message handler directly so it operates robustly in all WebViews (Tauri / Android / iOS)
+(globalThis as any).pdfjsWorker = pdfjsWorker;
 
 interface PdfViewerProps {
   blob: Blob;
@@ -43,7 +45,9 @@ export function PdfViewer({
     blob
       .arrayBuffer()
       .then((arrayBuffer) => {
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const loadingTask = pdfjsLib.getDocument({
+          data: new Uint8Array(arrayBuffer),
+        });
         return loadingTask.promise;
       })
       .then((doc) => {
@@ -57,7 +61,7 @@ export function PdfViewer({
       })
       .catch((err) => {
         if (isCancelled) return;
-        console.error('Error loading PDF document:', err);
+        console.error('Error loading PDF document:', err?.message || err?.name || String(err), err?.stack || '');
         setError('Failed to render PDF file.');
         setLoading(false);
       });
@@ -113,10 +117,17 @@ export function PdfViewer({
       .then(() => {
         if (!isCancelled) {
           setRendering(false);
-          if (!hasRestoredScrollRef.current && initialScrollY > 0 && containerRef.current) {
-            isProgrammaticScrollRef.current = true;
-            containerRef.current.scrollTop = initialScrollY;
-            hasRestoredScrollRef.current = true;
+          if (!hasRestoredScrollRef.current) {
+            if (initialScrollY > 0 && containerRef.current) {
+              isProgrammaticScrollRef.current = true;
+              containerRef.current.scrollTop = initialScrollY;
+            }
+            setTimeout(() => {
+              if (!isCancelled) {
+                hasRestoredScrollRef.current = true;
+                isProgrammaticScrollRef.current = false;
+              }
+            }, 50);
           }
         }
       })
@@ -216,7 +227,7 @@ export function PdfViewer({
       <div
         ref={containerRef}
         onScroll={(e) => {
-          if (isProgrammaticScrollRef.current) {
+          if (!hasRestoredScrollRef.current || isProgrammaticScrollRef.current) {
             isProgrammaticScrollRef.current = false;
             return;
           }

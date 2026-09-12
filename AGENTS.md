@@ -138,6 +138,9 @@ No other formats (MOBI, AZW, CBZ, etc.) are supported. Max upload size: 30MB.
   - **Payload Schema Validation:** Validate `positionJson` constraints (`@NotBlank @Size(max = 2000)`) and reject schema mismatches.
   - **Strict CSP & EPUB Sanitization:** Enforce strict Tauri CSP (`default-src 'self'`, `object-src 'none'`), set `allowScriptedContent: false` in `EpubViewer`, and strip scripts/inline event handlers/`javascript:` links via `sanitizeEpubDocument`.
   - **Auth Session Lifecycle:** Inspect JWT expiration on client boot; auto-evict session on 401/403.
+  - **Structured Error Handling:** Ensure all 4xx/5xx responses return structured JSON via `GlobalExceptionHandler` (`{"error": "...", "status": 404}`), preventing Spring Security forwarding to `/error` from triggering unintended 403 logout evictions.
+  - **Mobile WebView Polyfills:** Provide standard polyfills (`Uint8Array.prototype.toHex`, `Map.prototype.getOrInsertComputed`, `Promise.withResolvers`) for mobile WebViews (Android WebView).
+  - **Resilient EPUB Ingestion:** Normalize `.xhtml` $\leftrightarrow$ `.html` mismatches in EPUB archive manifests (`epubPatch.ts`) and provide graceful TOC navigation fallbacks to prevent infinite stalls.
 
 ## Releases & CI/CD
 
@@ -152,5 +155,5 @@ All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APK
 ## Testing
 
 - **Backend (75 tests):** Run with `cd server && mvn test`. Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`).
-- **Frontend (28 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
+- **Frontend (52 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
 - **CI Pipeline:** (`.github/workflows/ci.yml`) runs `mvn test` (server) and `tsc --noEmit` (client) on PRs to `main`.

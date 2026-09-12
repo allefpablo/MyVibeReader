@@ -37,6 +37,7 @@ export default defineConfig(async () => ({
     },
   },
   test: {
+    environment: 'happy-dom',
     setupFiles: ['./src/__tests__/setup.ts'],
   },
 }));

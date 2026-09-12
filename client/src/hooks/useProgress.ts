@@ -33,7 +33,7 @@ export function useProgress(bookId: string) {
     }
   }, []);
 
-  const flushPendingUpdate = useCallback(() => {
+  const flushPendingUpdate = useCallback(async (): Promise<void> => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
@@ -43,7 +43,14 @@ export function useProgress(bookId: string) {
     if (pending) {
       pendingUpdateRef.current = null;
       saveToLocalStorage(pending);
-      api.updateProgress(pending.bookId, pending.positionJson, pending.deviceId, pending.updatedAt).catch((err) => {
+      try {
+        await api.updateProgress(
+          pending.bookId,
+          pending.positionJson,
+          pending.deviceId,
+          pending.updatedAt
+        );
+      } catch (err) {
         console.warn('Network sync failed on flush; queueing update.', err);
         syncService.enqueueProgressUpdate({
           bookId: pending.bookId,
@@ -51,7 +58,7 @@ export function useProgress(bookId: string) {
           deviceId: pending.deviceId || 'web-client',
           updatedAt: pending.updatedAt || new Date().toISOString(),
         });
-      });
+      }
     }
   }, [saveToLocalStorage]);
 
@@ -98,11 +105,8 @@ export function useProgress(bookId: string) {
       })
       .catch((err) => {
         if (!isMounted) return;
-        // If not found on server, fallback to local or default start position
-        const fallback = getInitialProgress(bookId) || {
-          bookId,
-          positionJson: '{"page": 1, "scrollY": 0}',
-        };
+        // If not found on server, fallback to local cached progress if any, otherwise null
+        const fallback = getInitialProgress(bookId);
         setProgress(fallback);
         setError(err.message);
       })

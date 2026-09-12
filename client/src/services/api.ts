@@ -70,17 +70,27 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 export const api = {
   // Auth
-  register: (email: string, password: string): Promise<AuthResponse> =>
-    request<AuthResponse>('/auth/register', {
+  register: async (email: string, password: string): Promise<AuthResponse> => {
+    const data = await request<{ token: string; userId?: string; email?: string; user?: UserDto }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    }),
+    });
+    return {
+      token: data.token,
+      user: data.user || { id: data.userId || '', email: data.email || email },
+    };
+  },
 
-  login: (email: string, password: string): Promise<AuthResponse> =>
-    request<AuthResponse>('/auth/login', {
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    const data = await request<{ token: string; userId?: string; email?: string; user?: UserDto }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
-    }),
+    });
+    return {
+      token: data.token,
+      user: data.user || { id: data.userId || '', email: data.email || email },
+    };
+  },
 
   // Books
   getBooks: (): Promise<BookDto[]> =>

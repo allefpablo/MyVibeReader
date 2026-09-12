@@ -248,5 +248,5 @@ graph TB
 
 All architectural components described in this document are **100% fully implemented and verified**:
 * **Backend**: 75 automated unit and integration tests passing (`./mvnw test`).
-* **Frontend**: 28 automated Vitest unit tests passing (`npm test`) and TypeScript compilation clean (`npx tsc --noEmit`).
+* **Frontend**: 52 automated Vitest unit tests passing (`npm test`) and TypeScript compilation clean (`npx tsc --noEmit`), including mobile WebView polyfills and resilient EPUB ingestion.
 * **DevOps**: Docker, Caddyfile, Droplet setup script, GHCR container publishing, and automated SSH zero-downtime deployment workflow ready.

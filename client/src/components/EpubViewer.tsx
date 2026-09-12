@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import ePub, { Book, Rendition } from 'epubjs';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { sanitizeEpubDocument } from '../utils/sanitizeEpub';
+import { applyEpubPatches } from '../utils/epubPatch';
+
+applyEpubPatches();
 
 interface EpubViewerProps {
   blob: Blob;
@@ -38,12 +41,19 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
         const book = ePub(arrayBuffer);
         bookRef.current = book;
 
-        const rendition = book.renderTo(containerRef.current, {
-          width: '100%',
-          height: '100%',
-          spread: 'auto',
-          allowScriptedContent: false,
-        });
+        return book.ready.then(() => {
+          if (!isMounted || !containerRef.current) return;
+
+          if (!book.pageList) {
+            (book as any).pageList = { pageFromCfi: () => -1 };
+          }
+
+          const rendition = book.renderTo(containerRef.current, {
+            width: '100%',
+            height: '100%',
+            spread: 'auto',
+            allowScriptedContent: false,
+          });
 
         // Sanitize EPUB XHTML DOM before display to prevent script execution, XSS, and dangerous URLs
         rendition.hooks.content.register((contents: any) => {
@@ -72,7 +82,14 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
 
         displayPromise
           .then(() => {
-            if (isMounted) setLoading(false);
+            if (isMounted) {
+              setLoading(false);
+              setTimeout(() => {
+                if (isMounted) {
+                  isInitialRenderRef.current = false;
+                }
+              }, 150);
+            }
           })
           .catch((err) => {
             if (!isMounted) return;
@@ -87,7 +104,6 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
           if (cfi) {
             setCurrentLocation(cfi);
             if (isInitialRenderRef.current) {
-              isInitialRenderRef.current = false;
               return;
             }
             if (onLocationChange) {
@@ -95,8 +111,9 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
             }
           }
         });
-      })
-      .catch((err) => {
+      });
+    })
+    .catch((err) => {
         if (!isMounted) return;
         console.error('Error loading EPUB book:', err);
         setError('Failed to render EPUB file.');
@@ -114,7 +131,16 @@ export function EpubViewer({ blob, initialCfi, onLocationChange }: EpubViewerPro
   useEffect(() => {
     if (renditionRef.current && initialCfi && initialCfi !== currentLocation) {
       isInitialRenderRef.current = true;
-      renditionRef.current.display(initialCfi).catch(() => {});
+      renditionRef.current
+        .display(initialCfi)
+        .then(() => {
+          setTimeout(() => {
+            isInitialRenderRef.current = false;
+          }, 150);
+        })
+        .catch(() => {
+          isInitialRenderRef.current = false;
+        });
     }
   }, [initialCfi]);
 

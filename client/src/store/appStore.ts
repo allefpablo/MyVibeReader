@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { UserDto } from '../services/api';
-import { isJwtValid } from '../utils/jwt';
+import { isJwtValid, parseJwtPayload } from '../utils/jwt';
 
 interface AppState {
   token: string | null;
@@ -36,9 +36,19 @@ export function getValidStoredAuth(): { token: string | null; user: UserDto | nu
   }
 
   if (!user) {
-    localStorage.removeItem(STORAGE_KEY_TOKEN);
-    localStorage.removeItem(STORAGE_KEY_USER);
-    return { token: null, user: null };
+    const payload = parseJwtPayload(token);
+    if (payload?.sub) {
+      user = { id: payload.sub, email: '' };
+      try {
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      } catch {
+        // ignore localStorage errors
+      }
+    } else {
+      localStorage.removeItem(STORAGE_KEY_TOKEN);
+      localStorage.removeItem(STORAGE_KEY_USER);
+      return { token: null, user: null };
+    }
   }
 
   return { token, user };

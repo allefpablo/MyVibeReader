@@ -1,0 +1,28 @@
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN::80} {
+    # Allow up to 105MB upload body size for PDF/EPUB ebooks
+    request_body {
+        max_size 105MB
+    }
+
+    # Compression for text, JSON, and web responses
+    encode zstd gzip
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # Reverse proxy to Spring Boot backend container
+    reverse_proxy app:8080 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

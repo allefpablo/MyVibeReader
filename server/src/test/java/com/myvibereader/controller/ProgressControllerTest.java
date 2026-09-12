@@ -1,5 +1,6 @@
 package com.myvibereader.controller;
 
+import com.myvibereader.config.GlobalExceptionHandler;
 import com.myvibereader.config.JwtAuthFilter;
 import com.myvibereader.config.JwtUtil;
 import com.myvibereader.config.SecurityConfig;
@@ -26,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ProgressController.class)
-@Import({SecurityConfig.class, JwtAuthFilter.class, JwtUtil.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, JwtUtil.class, GlobalExceptionHandler.class})
 @TestPropertySource(properties = {
         "app.jwt.secret=test-secret-key-for-unit-tests-that-is-long-enough-256-bits",
         "app.jwt.expiration-ms=86400000"
@@ -67,7 +68,9 @@ class ProgressControllerTest {
 
         mockMvc.perform(get("/api/progress/book-123")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.error").value("Progress not found"));
     }
 
     @Test

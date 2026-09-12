@@ -366,3 +366,17 @@ All endpoints listed below are **100% fully implemented and verified**:
   2. Open the book in `/reader/:bookId`.
   3. Inspect the rendered DOM inside the reader iframe using browser/webview DevTools.
   4. Verify all `<script>` elements and inline event handlers are completely removed, links have `rel="noopener noreferrer"`, and `javascript:` URIs are neutralized.
+
+#### Test Case 4.8: Mobile WebView Compatibility Polyfills (Android)
+* **Steps**:
+  1. Launch application on an Android device or emulator running standard system WebView.
+  2. Open a complex, large PDF ebook (>25MB, 1000+ pages).
+  3. Verify document fingerprints and rendering execute without `s.toHex is not a function` or `getOrInsertComputed is not a function` runtime errors.
+  4. Verify pages render cleanly on canvas with zoom and pagination controls functional.
+
+#### Test Case 4.9: Resilient EPUB Archive Loading & TOC Fallback
+* **Steps**:
+  1. Upload an EPUB ebook where manifest references `.xhtml` but internal zip entries use `.html`, or where the declared TOC file is missing.
+  2. Open the book in the reader.
+  3. Verify `epubPatch` resolves the internal entries within milliseconds rather than hanging on unhandled promise rejections.
+  4. Advance chapters and return to library $\rightarrow$ verify reading progress CFI is saved and restored seamlessly across devices.

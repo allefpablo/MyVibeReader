@@ -179,7 +179,13 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-u
 npx tsc --noEmit
 ```
 
-### 6. Production Deployment to DigitalOcean ($4 - $6/month)
+### 6. Run Client Tests
+
+```bash
+npm test
+```
+
+### 7. Production Deployment to DigitalOcean ($4 - $6/month)
 
 Deploy the entire backend stack (Spring Boot 3.4 + PostgreSQL 16 + Caddy with automated HTTPS) on a single budget DigitalOcean Droplet:
 
@@ -196,7 +202,7 @@ sudo nano /opt/myvibereader/.env   # Set DOMAIN, JWT_SECRET, S3 credentials, etc
 sudo docker compose -f /opt/myvibereader/docker-compose.prod.yml up -d
 ```
 
-### 7. Automated Releases & Continuous Deployment (GitHub Actions)
+### 8. Automated Releases & Continuous Deployment (GitHub Actions)
 
 Releases and DigitalOcean server deployments are **fully automated** via GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 
@@ -284,4 +290,6 @@ MyVibeReader implements defense-in-depth across the full application stack:
 * **Strict Webview Sandbox**: Tauri desktop and mobile webviews enforce a strict Content Security Policy (`default-src 'self'`, `object-src 'none'`). EPUB documents are rendered with `allowScriptedContent: false` and DOM-sanitized via content interception hooks that strip scripts, objects, embeds, iframes, inline `on*` event handlers, and `javascript:` URIs.
 * **Sync Engine Integrity**: Reading positions require valid JSON adhering to format schemas (PDF integer `page >= 1` & `scrollY >= 0`; EPUB non-blank `cfi`). Updates enforce Last-Write-Wins timestamps and reject future clocks skewed by more than 5 minutes.
 * **Auth Lifecycle & Session Eviction**: JWT tokens are structurally validated and checked for expiration on client boot. Any authenticated request returning HTTP 401/403 automatically purges persisted storage and evicts the session.
+* **Structured Error Handling**: Global exception handling guarantees structured JSON 4xx/5xx responses without forwarding to `/error`, preventing Spring Security internal redirects from triggering accidental session evictions.
+* **Mobile WebView Compatibility & Resilient Ingestion**: Built-in runtime polyfills provide modern ECMAScript standard support (`Uint8Array.toHex`, `Map.getOrInsertComputed`, `Promise.withResolvers`) on Android WebViews, and EPUB archive loading handles `.xhtml`/`.html` manifest mismatches and missing TOC navigation fallbacks without blocking the reader.
 * **Strict CORS Whitelisting**: CORS is restricted to trusted local development origins and Tauri application schemes (`tauri://localhost`, `https://tauri.localhost`, `http://tauri.localhost`).

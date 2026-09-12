@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useProgress } from '../hooks/useProgress';
@@ -27,13 +27,6 @@ export default function ReaderPage() {
   const [downloading, setDownloading] = useState<boolean>(true);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const [initialPage, setInitialPage] = useState<number>(1);
-  const [initialScrollY, setInitialScrollY] = useState<number>(0);
-  const [initialCfi, setInitialCfi] = useState<string | undefined>(undefined);
-
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [currentScrollY, setCurrentScrollY] = useState<number>(0);
-
   // Fetch book metadata
   const { data: books = [] } = useQuery<BookDto[]>({
     queryKey: ['books'],
@@ -42,27 +35,41 @@ export default function ReaderPage() {
 
   const currentBook = books.find((b) => b.id === bookId);
 
-  // Parse reading position when progress loads
-  useEffect(() => {
+  // Capture initial reading position once when document/progress becomes ready
+  const initialPositionRef = useRef<{ page: number; scrollY: number; cfi?: string } | null>(null);
+
+  if (!progressLoading && initialPositionRef.current === null) {
     if (progress?.positionJson) {
       try {
-        const parsed = JSON.parse(progress.positionJson);
-        if (parsed.page) {
-          setInitialPage(parsed.page);
-          setCurrentPage(parsed.page);
-        }
-        if (parsed.scrollY !== undefined) {
-          setInitialScrollY(parsed.scrollY);
-          setCurrentScrollY(parsed.scrollY);
-        }
-        if (parsed.cfi) {
-          setInitialCfi(parsed.cfi);
-        }
+        initialPositionRef.current = JSON.parse(progress.positionJson);
       } catch (e) {
         console.warn('Failed to parse positionJson', e);
+        initialPositionRef.current = { page: 1, scrollY: 0 };
       }
+    } else {
+      initialPositionRef.current = { page: 1, scrollY: 0 };
     }
-  }, [progress]);
+  }
+
+  // Reset when bookId changes
+  useEffect(() => {
+    initialPositionRef.current = null;
+  }, [bookId]);
+
+  // Keep track of the current reading position for PDF updates
+  const pdfPositionRef = useRef<{ page: number; scrollY: number }>({
+    page: 1,
+    scrollY: 0,
+  });
+
+  useEffect(() => {
+    if (initialPositionRef.current?.page) {
+      pdfPositionRef.current.page = initialPositionRef.current.page;
+    }
+    if (initialPositionRef.current?.scrollY !== undefined) {
+      pdfPositionRef.current.scrollY = initialPositionRef.current.scrollY;
+    }
+  }, [progressLoading]);
 
   // Download book binary from backend API or local IndexedDB cache
   useEffect(() => {
@@ -110,26 +117,25 @@ export default function ReaderPage() {
   }, [isOnline]);
 
   const handlePdfPageChange = (page: number) => {
-    setCurrentPage(page);
-    const positionJson = JSON.stringify({ page, scrollY: currentScrollY });
+    pdfPositionRef.current.page = page;
+    const positionJson = JSON.stringify({ page, scrollY: pdfPositionRef.current.scrollY });
     updatePosition(positionJson);
   };
 
   const handlePdfScroll = (scrollY: number) => {
-    setCurrentScrollY(scrollY);
-    const positionJson = JSON.stringify({ page: currentPage, scrollY });
+    pdfPositionRef.current.scrollY = scrollY;
+    const positionJson = JSON.stringify({ page: pdfPositionRef.current.page, scrollY });
     updatePosition(positionJson);
   };
 
   const handleEpubCfiChange = (cfi: string) => {
     if (!cfi) return;
-    setInitialCfi(cfi);
     const positionJson = JSON.stringify({ cfi });
     updatePosition(positionJson);
   };
 
-  const handleBackToLibrary = () => {
-    flushPendingUpdate();
+  const handleBackToLibrary = async () => {
+    await flushPendingUpdate();
     navigate('/library');
   };
 
@@ -203,15 +209,15 @@ export default function ReaderPage() {
         ) : bookBlob && format === 'PDF' ? (
           <PdfViewer
             blob={bookBlob}
-            initialPage={initialPage}
-            initialScrollY={initialScrollY}
+            initialPage={initialPositionRef.current?.page ?? 1}
+            initialScrollY={initialPositionRef.current?.scrollY ?? 0}
             onPageChange={handlePdfPageChange}
             onScroll={handlePdfScroll}
           />
         ) : bookBlob && format === 'EPUB' ? (
           <EpubViewer
             blob={bookBlob}
-            initialCfi={initialCfi}
+            initialCfi={initialPositionRef.current?.cfi}
             onLocationChange={handleEpubCfiChange}
           />
         ) : (
