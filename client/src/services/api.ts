@@ -49,6 +49,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   });
 
   if (!response.ok) {
+    if ((response.status === 401 || response.status === 403) && token) {
+      useAppStore.getState().logout();
+    }
     const errorText = await response.text().catch(() => 'Request failed');
     throw new Error(errorText || `HTTP ${response.status}`);
   }
