@@ -1,18 +1,34 @@
-databases:
-  - name: myvibereader-db
-    databaseName: myvibereader
-    user: myvibereader
-    plan: free
+# ==============================================================================
+# MyVibeReader — Render Infrastructure as Code Blueprint
+# Provisions Spring Boot REST API Web Service + Managed PostgreSQL Database
+# ==============================================================================
 
 services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Web Service: Spring Boot REST API
+  # ──────────────────────────────────────────────────────────────────────────
   - type: web
     name: myvibereader-server
     runtime: docker
-    dockerfilePath: ./server/Dockerfile
+    rootDir: server
+    dockerfilePath: Dockerfile
+    dockerContext: .
     plan: free
+    region: oregon
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+
     envVars:
+      - key: PORT
+        value: 10000
+      - key: SERVER_PORT
+        value: 10000
       - key: SPRING_PROFILES_ACTIVE
-        value: docker
+        value: production
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: update
+
+      # Database binding from Render managed PostgreSQL
       - key: DB_HOST
         fromDatabase:
           name: myvibereader-db
@@ -33,8 +49,14 @@ services:
         fromDatabase:
           name: myvibereader-db
           property: password
+
+      # Cryptographic security
       - key: JWT_SECRET
         generateValue: true
+      - key: JWT_EXPIRATION_MS
+        value: 86400000
+
+      # S3 Object Storage (prompted during Blueprint setup)
       - key: S3_BUCKET_NAME
         sync: false
       - key: AWS_REGION
@@ -43,3 +65,19 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
+      - key: S3_ENDPOINT
+        value: ""
+
+      # Client CORS rules
+      - key: CORS_ALLOWED_ORIGINS
+        value: "tauri://localhost,https://tauri.localhost,http://tauri.localhost"
+
+# ──────────────────────────────────────────────────────────────────────────
+# Managed PostgreSQL Database
+# ──────────────────────────────────────────────────────────────────────────
+databases:
+  - name: myvibereader-db
+    databaseName: myvibereader
+    user: myvibereader
+    plan: free
+    region: oregon
