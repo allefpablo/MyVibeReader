@@ -1,5 +1,6 @@
 package com.myvibereader.config;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -48,6 +49,30 @@ public class JwtUtil {
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
+        }
+    }
+
+    private static final long OFFLINE_REFRESH_GRACE_PERIOD_MS = 7L * 24 * 60 * 60 * 1000; // 7 days
+
+    public String extractUserIdFromExpiredTokenIfAllowed(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            return Jwts.parser()
+                    .verifyWith(key())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .getSubject();
+        } catch (ExpiredJwtException e) {
+            Date expiration = e.getClaims().getExpiration();
+            if (expiration != null && (System.currentTimeMillis() - expiration.getTime()) <= OFFLINE_REFRESH_GRACE_PERIOD_MS) {
+                return e.getClaims().getSubject();
+            }
+            return null;
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
         }
     }
 }

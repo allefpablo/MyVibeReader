@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { api } from '../services/api';
-import { BookOpen, LogIn, UserPlus, AlertCircle, Sparkles } from 'lucide-react';
+import { authOfflineService } from '../services/authOfflineService';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { BookOpen, LogIn, UserPlus, AlertCircle, Sparkles, WifiOff, Settings, Server, Check } from 'lucide-react';
 
 export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
@@ -10,7 +12,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [serverUrlInput, setServerUrlInput] = useState(() => api.getBaseUrl());
+  const [serverSavedMsg, setServerSavedMsg] = useState(false);
 
+  const isOnline = useOnlineStatus();
   const setAuth = useAppStore((state) => state.setAuth);
   const navigate = useNavigate();
 
@@ -25,11 +31,19 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const response = isRegister
-        ? await api.register(email, password)
-        : await api.login(email, password);
-
-      setAuth(response.token, response.user);
+      if (isRegister) {
+        if (!isOnline) {
+          setError('Cannot create an account while offline. Please connect to the internet.');
+          setLoading(false);
+          return;
+        }
+        const response = await api.register(email, password);
+        await authOfflineService.saveOfflineCredentials(email, password, response.token, response.user);
+        setAuth(response.token, response.user);
+      } else {
+        const response = await authOfflineService.loginWithOfflineFallback(email, password);
+        setAuth(response.token, response.user);
+      }
       navigate('/library');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
@@ -44,7 +58,16 @@ export default function LoginPage() {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-violet-600/15 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl z-10">
+      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl z-10 relative">
+        <button
+          type="button"
+          onClick={() => setShowSettings(!showSettings)}
+          className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-xl transition cursor-pointer"
+          title="Server Connection Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+
         <div className="flex flex-col items-center mb-8 text-center">
           <div className="w-14 h-14 bg-gradient-to-tr from-indigo-500 to-violet-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-3">
             <BookOpen className="w-8 h-8 text-white" />
@@ -56,7 +79,58 @@ export default function LoginPage() {
             <Sparkles className="w-4 h-4 text-indigo-400" />
             Your synced cross-device eBook companion
           </p>
+          {!isOnline && (
+            <div className="mt-3 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center gap-1.5 text-amber-300 text-xs">
+              <WifiOff className="w-3.5 h-3.5 shrink-0" />
+              <span>Offline Mode — Sign in to cached accounts</span>
+            </div>
+          )}
         </div>
+
+        {showSettings && (
+          <div className="mb-6 p-4 bg-slate-800/60 border border-slate-700/80 rounded-xl space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-300">
+              <Server className="w-4 h-4 text-indigo-400" />
+              <span>Backend Server URL</span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Change the API URL to your Mac's LAN IP (e.g. http://192.168.1.214:8080/api) or remote server.
+            </p>
+            <input
+              type="url"
+              value={serverUrlInput}
+              onChange={(e) => setServerUrlInput(e.target.value)}
+              placeholder="http://localhost:8080/api"
+              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  api.setBaseUrl(serverUrlInput);
+                  setServerSavedMsg(true);
+                  setTimeout(() => setServerSavedMsg(false), 2000);
+                }}
+                className="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition cursor-pointer flex items-center gap-1"
+              >
+                {serverSavedMsg ? <Check className="w-3.5 h-3.5" /> : null}
+                {serverSavedMsg ? 'Saved!' : 'Save URL'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  api.setBaseUrl('');
+                  setServerUrlInput(api.getBaseUrl());
+                  setServerSavedMsg(true);
+                  setTimeout(() => setServerSavedMsg(false), 2000);
+                }}
+                className="text-[11px] text-slate-400 hover:text-slate-200 transition cursor-pointer underline"
+              >
+                Reset Default
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-3 text-rose-300 text-sm">

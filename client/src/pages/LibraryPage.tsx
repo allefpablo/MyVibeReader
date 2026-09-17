@@ -1,9 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { api, BookDto } from '../services/api';
 import { fileCacheService } from '../services/fileCacheService';
+import { bookCacheService } from '../services/bookCacheService';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { validateEbookFile } from '../utils/fileValidation';
 import {
   BookOpen,
@@ -16,6 +18,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Search,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 
 export default function LibraryPage() {
@@ -23,26 +27,64 @@ export default function LibraryPage() {
   const logout = useAppStore((state) => state.logout);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
 
   const [dragActive, setDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [downloadedBookIds, setDownloadedBookIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch Books with auto-refresh every 3s
+  // Fetch Books with auto-refresh every 3s when online, fallback to local cache when offline
   const { data: books = [], isLoading, isError, error } = useQuery<BookDto[]>({
-    queryKey: ['books'],
-    queryFn: api.getBooks,
-    refetchInterval: 3000,
+    queryKey: ['books', user?.id],
+    queryFn: async () => {
+      try {
+        const remoteBooks = await api.getBooks();
+        if (user?.id) {
+          bookCacheService.saveBooks(user.id, remoteBooks);
+        }
+        return remoteBooks;
+      } catch (err) {
+        if (user?.id) {
+          const cached = bookCacheService.getBooks(user.id);
+          if (cached && cached.length > 0) {
+            return cached;
+          }
+        }
+        throw err;
+      }
+    },
+    initialData: () => (user?.id ? bookCacheService.getBooks(user.id) : []),
+    refetchInterval: isOnline ? 3000 : false,
   });
+
+  // Track which books are stored in local IndexedDB cache for offline reading
+  useEffect(() => {
+    let isMounted = true;
+    const checkCached = async () => {
+      const set = new Set<string>();
+      for (const b of books) {
+        const has = await fileCacheService.hasBookFile(b.id);
+        if (has) set.add(b.id);
+      }
+      if (isMounted) setDownloadedBookIds(set);
+    };
+    if (books.length > 0) {
+      checkCached();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [books]);
 
   // Upload Mutation
   const uploadMutation = useMutation({
     mutationFn: (file: File) => api.uploadBook(file),
     onSuccess: () => {
       setUploadError(null);
-      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['books', user?.id] });
     },
     onError: (err: Error) => {
       setUploadError(err.message || 'Failed to upload book');
@@ -55,7 +97,12 @@ export default function LibraryPage() {
     onSuccess: (_, id) => {
       setDeletingId(null);
       fileCacheService.deleteBookFile(id);
-      queryClient.invalidateQueries({ queryKey: ['books'] });
+      setDownloadedBookIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      queryClient.invalidateQueries({ queryKey: ['books', user?.id] });
     },
   });
 
@@ -95,6 +142,8 @@ export default function LibraryPage() {
   const handleDownload = async (book: BookDto) => {
     try {
       const blob = await api.downloadBook(book.id);
+      await fileCacheService.saveBookFile(book.id, blob);
+      setDownloadedBookIds((prev) => new Set(prev).add(book.id));
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -128,6 +177,17 @@ export default function LibraryPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            {isOnline ? (
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs rounded-full font-medium">
+                <Wifi className="w-3.5 h-3.5" />
+                <span>Online</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs rounded-full font-medium">
+                <WifiOff className="w-3.5 h-3.5" />
+                <span>Offline Mode</span>
+              </span>
+            )}
             <span className="text-xs text-slate-400 font-medium px-3 py-1.5 bg-slate-800/60 rounded-full border border-slate-700/50">
               {user?.email}
             </span>
@@ -149,19 +209,30 @@ export default function LibraryPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Upload Dropzone */}
         <section>
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-8 text-center transition cursor-pointer relative overflow-hidden ${
-              dragActive
-                ? 'border-indigo-500 bg-indigo-500/10'
-                : 'border-slate-800 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/60'
-            }`}
-          >
-            <input
+          {!isOnline ? (
+            <div className="border border-slate-800/80 bg-slate-900/40 rounded-2xl p-6 text-center">
+              <div className="flex items-center justify-center gap-2 text-amber-300 text-sm font-medium mb-1">
+                <WifiOff className="w-4 h-4" />
+                <span>Offline Mode Active</span>
+              </div>
+              <p className="text-xs text-slate-400">
+                You can read previously opened or downloaded books. Connecting to the internet will re-enable book uploading.
+              </p>
+            </div>
+          ) : (
+            <div
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`border-2 border-dashed rounded-2xl p-8 text-center transition cursor-pointer relative overflow-hidden ${
+                dragActive
+                  ? 'border-indigo-500 bg-indigo-500/10'
+                  : 'border-slate-800 bg-slate-900/40 hover:border-slate-700 hover:bg-slate-900/60'
+              }`}
+            >
+              <input
               ref={fileInputRef}
               type="file"
               accept=".pdf,.epub,application/pdf,application/epub+zip"
@@ -191,6 +262,7 @@ export default function LibraryPage() {
               </div>
             </div>
           </div>
+        )}
 
           {uploadError && (
             <div className="mt-3 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2 text-rose-300 text-xs">
@@ -270,15 +342,26 @@ export default function LibraryPage() {
                         )}
                       </div>
 
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
-                          book.format === 'PDF'
-                            ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
-                            : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                        }`}
-                      >
-                        {book.format}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {downloadedBookIds.has(book.id) && (
+                          <span
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-500/10 border-emerald-500/30 text-emerald-300 flex items-center gap-1"
+                            title="Available for offline reading"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Offline Ready
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                            book.format === 'PDF'
+                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300'
+                              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                          }`}
+                        >
+                          {book.format}
+                        </span>
+                      </div>
                     </div>
 
                     <h3 className="font-semibold text-slate-100 text-base line-clamp-2 mb-1 group-hover:text-indigo-300 transition">
@@ -299,8 +382,9 @@ export default function LibraryPage() {
 
                     <button
                       onClick={() => handleDownload(book)}
-                      className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition cursor-pointer"
-                      title="Download eBook"
+                      disabled={!isOnline && !downloadedBookIds.has(book.id)}
+                      className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={downloadedBookIds.has(book.id) ? 'Export eBook' : 'Download for Offline Reading'}
                     >
                       <Download className="w-4 h-4" />
                     </button>

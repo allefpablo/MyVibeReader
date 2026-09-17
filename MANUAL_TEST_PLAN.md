@@ -109,6 +109,7 @@ All endpoints listed below are **100% fully implemented and verified**:
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/register` | No | ✅ Fully Implemented | `{"email": "...", "password": "..."}` | `201 Created` with JWT `token` & `user` object |
 | `POST` | `/api/auth/login` | No | ✅ Fully Implemented | `{"email": "...", "password": "..."}` | `200 OK` with JWT `token` & `user` object |
+| `POST` | `/api/auth/refresh` | No (Bearer) | ✅ Fully Implemented | Header: `Authorization: Bearer <token>` | `200 OK` with refreshed JWT `token` & `user` object |
 | `GET` | `/actuator/health` | No | ✅ Fully Implemented | None | `200 OK` `{"status": "UP"}` |
 | `GET` | `/api/sync` | No | ✅ Fully Implemented | None | `200 OK` `{"status":"UP", "service":"MyVibeReader Sync Service", "timestamp":"..."}` |
 | `GET` | `/api/books` | Yes | ✅ Fully Implemented | Header: `Authorization: Bearer <token>` | `200 OK` array of `BookDto` objects |
@@ -162,6 +163,17 @@ All endpoints listed below are **100% fully implemented and verified**:
   1. Call `GET http://localhost:8080/api/books` without an `Authorization` header.
 * **Expected Result**:
   * Status code: `403 Forbidden` / `401 Unauthorized`.
+
+#### Test Case 1.5: Refresh Token After Offline Session
+* **Steps**:
+  1. Send refresh request with valid or recently expired Bearer token:
+     ```bash
+     curl -i -X POST http://localhost:8080/api/auth/refresh \
+       -H "Authorization: Bearer $TOKEN"
+     ```
+* **Expected Result**:
+  * Status code: `200 OK`.
+  * Response body contains new JWT `token`, `userId`, and `email`.
 
 ---
 
@@ -380,3 +392,15 @@ All endpoints listed below are **100% fully implemented and verified**:
   2. Open the book in the reader.
   3. Verify `epubPatch` resolves the internal entries within milliseconds rather than hanging on unhandled promise rejections.
   4. Advance chapters and return to library $\rightarrow$ verify reading progress CFI is saved and restored seamlessly across devices.
+
+#### Test Case 4.10: Offline Login & Offline eBook Reading Flow
+* **Steps**:
+  1. Log into the application while connected to the internet to populate local offline credentials cache and download/open at least one book.
+  2. Disconnect Wi-Fi / set browser or device to Airplane/Offline mode.
+  3. Log out or close the application.
+  4. Launch the application while disconnected $\rightarrow$ observe "Offline Mode" indicator on `LoginPage`.
+  5. Enter the email and password previously used $\rightarrow$ click "Sign In".
+  6. Verify successful login, redirection to `/library`, and display of cached library books with "Offline Ready" badges.
+  7. Click "Read Now" on an offline-ready book $\rightarrow$ verify PDF or EPUB document opens and pages render cleanly from local IndexedDB cache without internet connection.
+  8. Navigate reading positions while offline $\rightarrow$ notice "Offline (Queued N)" status in reader navbar.
+  9. Re-enable Wi-Fi / reconnect to internet $\rightarrow$ verify background sync automatically flushes queued positions to the server and refreshes the session token.

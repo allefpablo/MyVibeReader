@@ -93,6 +93,59 @@ class AuthServiceTest {
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    @Test
+    void refreshToken_validToken_returnsRefreshedToken() {
+        when(jwtUtil.isTokenValid("valid-token")).thenReturn(true);
+        when(jwtUtil.extractUserId("valid-token")).thenReturn("uuid-1");
+        User user = mockUser("uuid-1", "user@example.com");
+        when(userRepository.findById("uuid-1")).thenReturn(Optional.of(user));
+        when(jwtUtil.generateToken("uuid-1")).thenReturn("new-token");
+
+        AuthResponse response = authService.refreshToken("valid-token");
+
+        assertThat(response.token()).isEqualTo("new-token");
+        assertThat(response.userId()).isEqualTo("uuid-1");
+        assertThat(response.email()).isEqualTo("user@example.com");
+    }
+
+    @Test
+    void refreshToken_expiredTokenWithinGracePeriod_returnsRefreshedToken() {
+        when(jwtUtil.isTokenValid("expired-token")).thenReturn(false);
+        when(jwtUtil.extractUserIdFromExpiredTokenIfAllowed("expired-token")).thenReturn("uuid-1");
+        User user = mockUser("uuid-1", "user@example.com");
+        when(userRepository.findById("uuid-1")).thenReturn(Optional.of(user));
+        when(jwtUtil.generateToken("uuid-1")).thenReturn("new-token");
+
+        AuthResponse response = authService.refreshToken("expired-token");
+
+        assertThat(response.token()).isEqualTo("new-token");
+        assertThat(response.userId()).isEqualTo("uuid-1");
+        assertThat(response.email()).isEqualTo("user@example.com");
+    }
+
+    @Test
+    void refreshToken_invalidToken_throwsUnauthorized() {
+        when(jwtUtil.isTokenValid("bad-token")).thenReturn(false);
+        when(jwtUtil.extractUserIdFromExpiredTokenIfAllowed("bad-token")).thenReturn(null);
+
+        assertThatThrownBy(() -> authService.refreshToken("bad-token"))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void refreshToken_userNotFound_throwsUnauthorized() {
+        when(jwtUtil.isTokenValid("token-for-deleted-user")).thenReturn(true);
+        when(jwtUtil.extractUserId("token-for-deleted-user")).thenReturn("uuid-nonexistent");
+        when(userRepository.findById("uuid-nonexistent")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.refreshToken("token-for-deleted-user"))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
     private User mockUser(String id, String email) {
         User user = mock(User.class);
         when(user.getId()).thenReturn(id);

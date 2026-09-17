@@ -164,11 +164,14 @@ erDiagram
 * **React 18 & Router**: Declarative UI pages (`LoginPage`, `LibraryPage`, `ReaderPage`).
 * **TanStack Query Auto-Sync**: Manages server state with 3-second polling interval on library queries (`refetchInterval: 3000`) and window focus refetching (`refetchOnWindowFocus: true`) for real-time cross-device library synchrony.
 * **Zustand & `@tauri-apps/plugin-store`**: Synchronous local state combined with persistent disk storage for offline access.
+* **Offline Authentication Service (`authOfflineService`)**: Provides salted SHA-256 local credential verification and generates valid offline JWT tokens for uninterrupted offline access.
+* **Library Metadata Cache (`bookCacheService`)**: Persists user book catalog in localStorage to enable seamless offline library browsing.
 * **IndexedDB Binary Cache (`fileCacheService`)**: Stores downloaded PDF and EPUB binary blobs locally for offline reading without network requests to S3.
 * **Offline Sync Engine (`useOnlineStatus` + `syncService` + `useProgress`)**: Listens to network status, ensures non-destructive initial rendering in PDF and EPUB viewers, and drains the persistent queue via `PUT /api/progress/{bookId}` upon reconnection.
 
 ### 4.2 Server Components
 * **Stateless JWT Security Filter (`JwtAuthFilter`)**: Intercepts requests, validates Bearer tokens via `JwtUtil`, and injects user identity into Spring Security context (`@AuthenticationPrincipal String userId`).
+* **Authentication Controller & Service (`AuthController`, `AuthService`)**: Manages registration, login, and token refresh (`POST /api/auth/refresh`), supporting seamless re-authentication when returning online from offline reading.
 * **Book Proxy Service (`BookService`)**: Validates eBook file signatures/content types, streams file binaries directly to AWS S3 (`downloadBook`), deletes S3 objects (`deleteBook`), and records metadata in PostgreSQL.
 * **Progress Service (`ProgressService`)**: Manages reading position synchronization per user and per book using Last-Write-Wins semantics based on `updatedAt`.
 
@@ -247,6 +250,6 @@ graph TB
 ## 7. Implementation Verification Status
 
 All architectural components described in this document are **100% fully implemented and verified**:
-* **Backend**: 75 automated unit and integration tests passing (`./mvnw test`).
-* **Frontend**: 52 automated Vitest unit tests passing (`npm test`) and TypeScript compilation clean (`npx tsc --noEmit`), including mobile WebView polyfills and resilient EPUB ingestion.
+* **Backend**: 82 automated unit and integration tests passing (`./mvnw test`).
+* **Frontend**: 64 automated Vitest unit tests passing (`npm test`) and TypeScript compilation clean (`npx tsc --noEmit`), including mobile WebView polyfills and resilient EPUB ingestion.
 * **DevOps**: Docker, Caddyfile, Droplet setup script, GHCR container publishing, and automated SSH zero-downtime deployment workflow ready.

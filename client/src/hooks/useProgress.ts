@@ -62,7 +62,7 @@ export function useProgress(bookId: string) {
     }
   }, [saveToLocalStorage]);
 
-  // Load progress from backend API initially
+  // Load progress from backend API initially and on window focus/polling
   useEffect(() => {
     let isMounted = true;
     if (!bookId) return;
@@ -73,11 +73,12 @@ export function useProgress(bookId: string) {
       setProgress(local);
     }
 
-    setLoading(true);
+    const fetchServerProgress = async (isInitial = false) => {
+      if (!isMounted) return;
+      if (isInitial) setLoading(true);
 
-    api
-      .getProgress(bookId)
-      .then((serverProgress) => {
+      try {
+        const serverProgress = await api.getProgress(bookId);
         if (!isMounted) return;
 
         // Check if there is an un-synced offline update in the queue
@@ -93,36 +94,65 @@ export function useProgress(bookId: string) {
             setProgress(queuedProgress);
             saveToLocalStorage(queuedProgress);
             api.updateProgress(bookId, queued.positionJson, queued.deviceId, queued.updatedAt).catch(() => {});
-            setLoading(false);
             return;
           }
         }
 
-        // Server progress is authoritative across devices
-        setProgress(serverProgress);
-        saveToLocalStorage(serverProgress);
-        setError(null);
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        // If not found on server, fallback to local cached progress if any, otherwise null
-        const fallback = getInitialProgress(bookId);
-        setProgress(fallback);
-        setError(err.message);
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false);
-      });
+        const localCurrent = getInitialProgress(bookId);
+        const localTime = localCurrent?.updatedAt ? new Date(localCurrent.updatedAt).getTime() : 0;
+        const serverTime = serverProgress.updatedAt ? new Date(serverProgress.updatedAt).getTime() : 0;
 
-    const handleBeforeUnload = () => {
+        // Adopt server progress if initial load or server is newer
+        if (isInitial || serverTime > localTime) {
+          setProgress(serverProgress);
+          saveToLocalStorage(serverProgress);
+          setError(null);
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        if (isInitial) {
+          const fallback = getInitialProgress(bookId);
+          setProgress(fallback);
+          setError(err.message);
+        }
+      } finally {
+        if (isMounted && isInitial) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchServerProgress(true);
+
+    const handleFocusOrVisible = () => {
+      if (!pendingUpdateRef.current && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
+        fetchServerProgress(false);
+      }
+    };
+
+    const handleHideOrUnload = () => {
       flushPendingUpdate();
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('focus', handleFocusOrVisible);
+    window.addEventListener('beforeunload', handleHideOrUnload);
+    window.addEventListener('pagehide', handleHideOrUnload);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleHideOrUnload();
+      } else if (document.visibilityState === 'visible') {
+        handleFocusOrVisible();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       isMounted = false;
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      window.removeEventListener('beforeunload', handleHideOrUnload);
+      window.removeEventListener('pagehide', handleHideOrUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       flushPendingUpdate();
     };
   }, [bookId, flushPendingUpdate, saveToLocalStorage]);

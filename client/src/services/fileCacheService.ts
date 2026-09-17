@@ -116,4 +116,23 @@ export const fileCacheService = {
       console.warn('Failed to clear IndexedDB book cache:', err);
     }
   },
+
+  /**
+   * Check whether an eBook binary blob is cached locally.
+   */
+  hasBookFile: async (bookId: string): Promise<boolean> => {
+    try {
+      const db = await openDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.count(bookId);
+
+        request.onsuccess = () => resolve(request.result > 0);
+        request.onerror = () => resolve(false);
+      });
+    } catch {
+      return false;
+    }
+  },
 };

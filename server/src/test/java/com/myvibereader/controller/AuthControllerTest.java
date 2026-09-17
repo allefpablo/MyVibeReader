@@ -117,4 +117,32 @@ class AuthControllerTest {
                         .header("Origin", "https://malicious-attacker.com"))
                 .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
     }
+
+    @Test
+    void refresh_validToken_returns200WithNewToken() throws Exception {
+        when(authService.refreshToken("sample-token")).thenReturn(SAMPLE_RESPONSE);
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .header("Authorization", "Bearer sample-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("token-abc"))
+                .andExpect(jsonPath("$.userId").value("uuid-1"))
+                .andExpect(jsonPath("$.email").value("user@example.com"));
+    }
+
+    @Test
+    void refresh_invalidToken_returns401() throws Exception {
+        when(authService.refreshToken("invalid-token"))
+                .thenThrow(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token"));
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .header("Authorization", "Bearer invalid-token"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_missingAuthorizationHeader_returns400() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isBadRequest());
+    }
 }

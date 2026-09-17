@@ -1,7 +1,27 @@
 // HTTP client pointing at the Spring Boot server.
 import { useAppStore } from '../store/appStore';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_STORAGE_KEY = 'myvibereader_api_url';
+
+export function getApiBaseUrl(): string {
+  if (typeof localStorage !== 'undefined') {
+    const custom = localStorage.getItem(API_STORAGE_KEY);
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/+$/, '');
+    }
+  }
+  return (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/+$/, '');
+}
+
+export function setApiBaseUrl(url: string): void {
+  if (typeof localStorage !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem(API_STORAGE_KEY, url.trim().replace(/\/+$/, ''));
+    } else {
+      localStorage.removeItem(API_STORAGE_KEY);
+    }
+  }
+}
 
 export interface UserDto {
   id: string;
@@ -43,7 +63,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
     ...options,
     headers,
   });
@@ -92,6 +112,16 @@ export const api = {
     };
   },
 
+  refreshToken: async (): Promise<AuthResponse> => {
+    const data = await request<{ token: string; userId?: string; email?: string; user?: UserDto }>('/auth/refresh', {
+      method: 'POST',
+    });
+    return {
+      token: data.token,
+      user: data.user || { id: data.userId || '', email: data.email || '' },
+    };
+  },
+
   // Books
   getBooks: (): Promise<BookDto[]> =>
     request<BookDto[]>('/books'),
@@ -127,4 +157,8 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ bookId, positionJson, deviceId, updatedAt }),
     }),
+
+  // Server Configuration
+  getBaseUrl: getApiBaseUrl,
+  setBaseUrl: setApiBaseUrl,
 };

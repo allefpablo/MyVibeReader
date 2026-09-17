@@ -44,4 +44,23 @@ public class AuthService {
         String token = jwtUtil.generateToken(user.getId());
         return new AuthResponse(token, user.getId(), user.getEmail());
     }
+
+    public AuthResponse refreshToken(String token) {
+        String userId = null;
+        if (jwtUtil.isTokenValid(token)) {
+            userId = jwtUtil.extractUserId(token);
+        } else {
+            userId = jwtUtil.extractUserIdFromExpiredTokenIfAllowed(token);
+        }
+
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        String newToken = jwtUtil.generateToken(user.getId());
+        return new AuthResponse(newToken, user.getId(), user.getEmail());
+    }
 }

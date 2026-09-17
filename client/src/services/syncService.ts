@@ -48,8 +48,14 @@ export const syncService = {
     for (const item of queue) {
       try {
         await api.updateProgress(item.bookId, item.positionJson, item.deviceId, item.updatedAt);
-      } catch (err) {
-        console.warn(`Failed to flush progress for book ${item.bookId}:`, err);
+      } catch (err: any) {
+        const msg = String(err?.message || err);
+        // Discard poison pills: 400 (bad format/future clock), 404 (deleted book)
+        if (msg.includes('404') || msg.includes('400') || msg.toLowerCase().includes('not found')) {
+          console.warn(`Dropping unrecoverable progress update for book ${item.bookId}:`, msg);
+          continue;
+        }
+        console.warn(`Failed to flush progress for book ${item.bookId}; retaining in queue:`, msg);
         remainingQueue.push(item);
       }
     }
@@ -57,3 +63,20 @@ export const syncService = {
     saveQueue(remainingQueue);
   },
 };
+
+// Automatically set up event listeners and periodic interval to flush queue
+if (typeof window !== 'undefined') {
+  const tryFlush = () => {
+    if (syncService.getQueueLength() > 0) {
+      syncService.flushQueue().catch(() => {});
+    }
+  };
+
+  window.addEventListener('online', tryFlush);
+  window.addEventListener('focus', tryFlush);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      tryFlush();
+    }
+  });
+}

@@ -81,7 +81,7 @@ Uploads are proxied through the backend (client → server → S3), not uploaded
 
 ### Endpoints & implementation status
 
-Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/books`, `POST /api/books/upload`, `GET /api/books/{id}/download`, `DELETE /api/books/{id}`, `GET /api/progress/{bookId}`, `PUT /api/progress/{bookId}`, `GET /api/sync` (returns sync status JSON).
+Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `GET /api/books`, `POST /api/books/upload`, `GET /api/books/{id}/download`, `DELETE /api/books/{id}`, `GET /api/progress/{bookId}`, `PUT /api/progress/{bookId}`, `GET /api/sync` (returns sync status JSON).
 
 ### Client source structure (`src/`)
 
@@ -89,6 +89,9 @@ Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/
 - `hooks/` — `useProgress` (reads server state first, queues offline updates), `useOnlineStatus` (network detection, triggers sync flush)
 - `store/appStore.ts` — Zustand store: auth token, current user, active book (validates JWT expiration on init and setAuth)
 - `services/api.ts` — HTTP client for the Spring Boot server (auto-evicts session via `logout()` on 401/403)
+- `services/authOfflineService.ts` — local salted SHA-256 credentials verification & offline JWT session generation
+- `services/bookCacheService.ts` — localStorage caching of eBook library metadata for offline reading
+- `services/fileCacheService.ts` — IndexedDB binary blob caching for offline eBook documents
 - `services/syncService.ts` — drains the offline position queue via `flushQueue()`
 - `utils/` — `jwt.ts` (JWT inspection, expiration check, base64url decoding), `sanitizeEpub.ts` (EPUB DOM sanitizer stripping scripts, event handlers, and dangerous URIs), `fileValidation.ts` (client 30MB pre-upload check)
 - `router.tsx` — React Router routes: `/` (login), `/library`, `/reader/:bookId`
@@ -97,9 +100,13 @@ Fully implemented: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/
 
 1. **Auto Library Sync:** `LibraryPage` queries books with `refetchInterval: 3000` and `refetchOnWindowFocus: true`, automatically displaying new/deleted books across active devices.
 2. **Server Truth for Reading Progress:** When opening a book, `useProgress` treats `serverProgress` as authoritative unless un-synced offline updates exist in `syncService.getQueue()`.
-3. **Non-Destructive Initial Render:** Viewer components (`PdfViewer`, `EpubViewer`) do not fire progress updates during initial document load or programmatic scroll restoration.
-4. **Offline Queue:** If network fails during active reading, updates are queued in `syncService` and flushed automatically upon reconnection.
-5. Server uses `updatedAt` timestamp — last write wins. Stale updates (`incoming < existing`) are ignored. Timestamps > 5 minutes in the future are rejected with HTTP 400.
+3. **Cross-Device Focus & Visibility Sync:** `useProgress` refetches progress on window `focus` and document `visibilitychange` (to `visible`), dynamically adopting newer reading positions (`server.updatedAt > local.updatedAt`) advanced on other devices.
+4. **Mobile App-Switching Flush:** When the app is backgrounded or tab hidden (`visibilityState === 'hidden'`, `pagehide`), pending progress updates are immediately flushed to the server without waiting for debounce timers.
+5. **Non-Destructive Initial Render:** Viewer components (`PdfViewer`, `EpubViewer`) do not fire progress updates during initial document load or programmatic scroll restoration.
+6. **Resilient Offline Queue:** If network fails during active reading, updates are queued in `syncService`. `syncService.flushQueue()` auto-flushes on reconnect/focus/visibility, automatically discarding non-retryable 404/400 poison pills while retaining temporary network/5xx failures.
+7. **Server Rules:** Server uses `updatedAt` timestamp — last write wins. Stale updates (`incoming < existing`) are ignored. Timestamps > 5 minutes in the future are rejected with HTTP 400.
+8. **Offline Authentication & Reading:** Users can log in offline using salted credentials cached during previous online sessions. Stored eBook metadata and IndexedDB binary blobs allow complete offline reading; progress is saved locally and flushed automatically on reconnection.
+9. **Dynamic Server URL & LAN Connectivity:** `api.getBaseUrl()` / `api.setBaseUrl(url)` allows configuring backend URLs (e.g. Mac LAN IP `http://192.168.x.x:8080/api`) directly from the client without re-compiling; Tauri CSP permits `connect-src 'self' http: https:;`.
 
 ### Android 16 KB Page Alignment (Android 15+)
 
@@ -154,6 +161,6 @@ All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APK
 
 ## Testing
 
-- **Backend (75 tests):** Run with `cd server && mvn test`. Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`).
-- **Frontend (52 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
-- **CI Pipeline:** (`.github/workflows/ci.yml`) runs `mvn test` (server) and `tsc --noEmit` (client) on PRs to `main`.
+- **Backend (82 tests):** Run with `cd server && ./mvnw test`. Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`).
+- **Frontend (64 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
+- **CI Pipeline:** (`.github/workflows/ci.yml`) runs `./mvnw test` (server) and `tsc --noEmit` (client) on PRs to `main`.
