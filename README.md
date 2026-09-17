@@ -173,19 +173,74 @@ adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-u
 
 > **Note on 16 KB Page Size:** Android 15+ kernel devices (e.g. Galaxy Z Fold6) require 16 KB ELF page alignment for native libraries (`.so`). MyVibeReader automatically passes `-Wl,-z,max-page-size=16384` during Rust Android compilation.
 
-### 5. Check TypeScript Types
+### 5. Pointing Clients to a Remote Backend (Render / DigitalOcean / Cloud)
+
+By default, the client points to `http://localhost:8080/api`. To connect desktop and mobile apps to a remote production or staging server:
+
+#### Option A: Build-Time Inlining via `client/.env` (Recommended)
+
+Create or update [`client/.env`](client/.env) before building:
+
+```env
+# Point to your live backend (Render, DigitalOcean, custom domain)
+VITE_API_URL=https://<your-remote-host>/api
+```
+
+*Example for Render:*
+```env
+VITE_API_URL=https://myvibereader-server.onrender.com/api
+```
+
+*Example for DigitalOcean / Custom Domain:*
+```env
+VITE_API_URL=https://reader.yourdomain.com/api
+```
+
+> [!IMPORTANT]
+> Always append the `/api` prefix to your server URL. All Spring Boot REST endpoints (`/api/auth/**`, `/api/books/**`, `/api/progress/**`) reside under `/api`.
+
+Then run or compile your clients:
+- **macOS Desktop (Dev Mode):** `npm run tauri dev`
+- **macOS Desktop (Production Bundle):** `npm run tauri build`
+- **Android Mobile:**
+  ```bash
+  npx tauri android build --debug --apk
+  adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+  ```
+
+> [!TIP]
+> **No USB Port Forwarding Needed:** When connecting to a remote HTTPS backend, `adb reverse tcp:8080 tcp:8080` is **not** required. The Android app connects directly over internet (Wi-Fi or cellular).
+
+#### Option B: Dynamic Runtime Configuration (No Recompilation)
+
+You can also override the API URL dynamically at runtime (for example, in web inspector or client settings):
+
+```javascript
+// In browser/webview console or frontend code
+import { api } from './services/api';
+api.setBaseUrl('https://myvibereader-server.onrender.com/api');
+
+// Or via localStorage directly:
+localStorage.setItem('myvibereader_api_url', 'https://myvibereader-server.onrender.com/api');
+```
+
+To reset back to the build-time default, call `api.setBaseUrl('')` or `localStorage.removeItem('myvibereader_api_url')`.
+
+For comprehensive instructions and troubleshooting, see [**`client-remote-configuration.md`**](client-remote-configuration.md) and [**`render-deployment.md`**](render-deployment.md).
+
+### 6. Check TypeScript Types
 
 ```bash
 npx tsc --noEmit
 ```
 
-### 6. Run Client Tests
+### 7. Run Client Tests
 
 ```bash
 npm test
 ```
 
-### 7. Production Deployment to DigitalOcean ($4 - $6/month)
+### 8. Production Deployment to DigitalOcean ($4 - $6/month)
 
 Deploy the entire backend stack (Spring Boot 3.4 + PostgreSQL 16 + Caddy with automated HTTPS) on a single budget DigitalOcean Droplet:
 
@@ -202,7 +257,7 @@ sudo nano /opt/myvibereader/.env   # Set DOMAIN, JWT_SECRET, S3 credentials, etc
 sudo docker compose -f /opt/myvibereader/docker-compose.prod.yml up -d
 ```
 
-### 8. Automated Releases & Continuous Deployment (GitHub Actions)
+### 9. Automated Releases & Continuous Deployment (GitHub Actions)
 
 Releases and DigitalOcean server deployments are **fully automated** via GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
 

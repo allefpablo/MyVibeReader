@@ -9,12 +9,21 @@ This guide explains step-by-step how to point your **MyVibeReader** client appli
 In MyVibeReader, all network communication passes through the API service layer in [`client/src/services/api.ts`](client/src/services/api.ts):
 
 ```typescript
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+export function getApiBaseUrl(): string {
+  if (typeof localStorage !== 'undefined') {
+    const custom = localStorage.getItem('myvibereader_api_url');
+    if (custom && custom.trim()) {
+      return custom.trim().replace(/\/+$/, '');
+    }
+  }
+  return (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/+$/, '');
+}
 ```
 
-* **Build-Time Inlining:** Vite statically injects the value of `VITE_API_URL` into the compiled frontend JavaScript bundle during compilation (`npm run build` or `tauri build`).
-* **The `/api` Requirement:** All server endpoints (`/api/auth/**`, `/api/books/**`, `/api/progress/**`) live under the `/api` prefix. Your remote URL **must include `/api`** at the end.
-* **Tauri Security (CSP):** The Content Security Policy in [`client/src-tauri/tauri.conf.json`](client/src-tauri/tauri.conf.json) already includes `connect-src ... https:;`, which allows secure HTTPS traffic to any remote domain out of the box.
+* **Build-Time Configuration (Recommended):** Vite statically inlines `VITE_API_URL` from [`client/.env`](client/.env) into the compiled frontend bundle during compilation (`npm run build`, `npm run tauri dev`, `npm run tauri build`, or `npx tauri android build`).
+* **Runtime Dynamic Override (No Recompile):** The API base URL can be dynamically configured or changed at runtime without re-compiling via `api.setBaseUrl('https://<your-remote-host>/api')` or `localStorage.setItem('myvibereader_api_url', 'https://<your-remote-host>/api')`.
+* **The `/api` Requirement:** All backend endpoints (`/api/auth/**`, `/api/books/**`, `/api/progress/**`) are mounted under `/api`. Your remote base URL **must always end with `/api`** (without trailing slash).
+* **Tauri Security (CSP):** The Content Security Policy in [`client/src-tauri/tauri.conf.json`](client/src-tauri/tauri.conf.json) explicitly includes `connect-src 'self' http://localhost:8080 http://127.0.0.1:8080 https:;`, which permits secure HTTPS traffic to any remote domain (Render, DigitalOcean, custom domains) out of the box.
 
 ---
 

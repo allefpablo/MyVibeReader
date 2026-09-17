@@ -164,7 +164,8 @@ describe('Cross-Device Progress Sync & Network Recovery (Regression Prevention)'
 
   describe('Dynamic API Base URL Configuration', () => {
     it('allows reading and overriding the API base URL dynamically via localStorage', () => {
-      expect(api.getBaseUrl()).toContain('8080');
+      const defaultUrl = api.getBaseUrl();
+      expect(defaultUrl).toMatch(/^https?:\/\//);
 
       api.setBaseUrl('http://192.168.1.214:8080/api');
       expect(api.getBaseUrl()).toBe('http://192.168.1.214:8080/api');
@@ -173,6 +174,7 @@ describe('Cross-Device Progress Sync & Network Recovery (Regression Prevention)'
       // Reset to default
       api.setBaseUrl('');
       expect(localStorage.getItem('myvibereader_api_url')).toBeNull();
+      expect(api.getBaseUrl()).toBe(defaultUrl);
     });
   });
 

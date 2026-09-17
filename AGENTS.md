@@ -49,8 +49,12 @@ npm run tauri dev
 # Android dev / build
 npm run tauri android init                     # First time only
 npx tauri android build --debug --apk          # Build debug APK (16 KB page-aligned)
-adb reverse tcp:8080 tcp:8080                  # Route phone localhost:8080 to Mac backend
+adb reverse tcp:8080 tcp:8080                  # Route phone localhost:8080 to Mac backend (local dev only)
 adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+
+# Remote backend connection (Render / DigitalOcean / Cloud)
+# Build-time: set VITE_API_URL=https://<host>/api in client/.env (adb reverse NOT needed for HTTPS)
+# Runtime override: api.setBaseUrl('https://<host>/api') or localStorage.setItem('myvibereader_api_url', ...)
 
 # Production build (desktop)
 npm run tauri build
@@ -162,5 +166,5 @@ All project releases (Backend Server JAR, macOS Desktop DMG/App, and Android APK
 ## Testing
 
 - **Backend (82 tests):** Run with `cd server && ./mvnw test`. Tests use H2 in-memory (not PostgreSQL). Services are unit-tested with Mockito; controllers with `@WebMvcTest` + `MockMvc`, injecting the JWT secret via `@TestPropertySource`. Test method names follow `method_scenario_expectedOutcome` (e.g. `uploadBook_unsupportedFormat_throws415`).
-- **Frontend (64 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
+- **Frontend (70 tests):** Run with `cd client && npm test` (Vitest) and `npx tsc --noEmit` (TypeScript type check).
 - **CI Pipeline:** (`.github/workflows/ci.yml`) runs `./mvnw test` (server) and `tsc --noEmit` (client) on PRs to `main`.
