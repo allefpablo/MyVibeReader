@@ -126,6 +126,9 @@ jobs:
   build-android:
     name: Build Android Client (Tauri v2)
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      NDK_HOME: /usr/local/lib/android/sdk/ndk/27.2.12479018
     defaults:
       run:
         working-directory: client
@@ -139,12 +142,9 @@ jobs:
           distribution: temurin
 
       - name: Set up Android SDK & NDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK and Android Build Tools
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35" "platforms;android-36"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.2.12479018" "build-tools;35.0.0" "platforms;android-35" "platforms;android-36"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
