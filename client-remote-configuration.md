@@ -93,9 +93,9 @@ npm run tauri build
 
 **Where to find the built app:**
 * Installer DMG: `client/src-tauri/target/release/bundle/dmg/client_0.3.0_x64.dmg` (or `aarch64` on Apple Silicon)
-* Standalone `.app`: `client/src-tauri/target/release/bundle/macos/client.app`
+* Standalone `.app`: `client/src-tauri/target/release/bundle/macos/MyVibeReader.app`
 
-You can drag `client.app` directly into your macOS `/Applications` folder.
+You can drag `MyVibeReader.app` directly into your macOS `/Applications` folder.
 
 ---
 

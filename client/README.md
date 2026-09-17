@@ -72,7 +72,7 @@ npm run tauri build
 ```
 
 The compiled standalone app and installer DMG will be located at:
-- `.app`: `src-tauri/target/release/bundle/macos/client.app`
+- `.app`: `src-tauri/target/release/bundle/macos/MyVibeReader.app`
 - `.dmg`: `src-tauri/target/release/bundle/dmg/`
 
 ### Build & Run Native Android App

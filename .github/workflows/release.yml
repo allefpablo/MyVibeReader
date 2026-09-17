@@ -112,7 +112,7 @@ jobs:
 
       - name: Package macOS App Bundle
         run: |
-          tar -czf ../MyVibeReader-macOS-aarch64.app.tar.gz -C src-tauri/target/release/bundle/macos client.app
+          tar -czf ../MyVibeReader-macOS-aarch64.app.tar.gz -C src-tauri/target/release/bundle/macos MyVibeReader.app
           cp src-tauri/target/release/bundle/dmg/*.dmg ../MyVibeReader-macOS-aarch64.dmg
 
       - name: Upload macOS Artifacts
